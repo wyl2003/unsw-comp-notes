@@ -1,0 +1,285 @@
+<section class="chapter" id="ch4">
+  <header class="chapter-head">
+    <div class="kicker">模块 04 · Lecture 2a · Tutorial 3</div>
+    <h2>概率、熵与 KL 散度</h2>
+    <p class="lead">
+      这一章的分数几乎全在「<b>套公式 + 解释不对称性</b>」。三个公式必须背到能默写：熵、KL、高斯熵。
+      它们不是抽象概念 —— 熵就是「平均要几个 bit 才能描述这个分布」，KL 就是「用错密码本多花几个 bit」。
+    </p>
+    <div class="glance">
+      <div><h5>考试怎么考</h5>算 $H(p)$、$D(p\Vert q)$、$D(q\Vert p)$、高斯情形的 KL 与 $W_2$；解释为什么 KL 不是距离；画 Huffman 树。</div>
+      <div><h5>你需要先会</h5>$\log_2$、求和、条件概率、$2\times2$ 矩阵行列式。</div>
+    </div>
+    <div class="minitoc">
+      <a href="#s4-1">4.1 概率速成</a><a href="#s4-2">4.2 熵</a>
+      <a href="#s4-3">4.3 交叉熵与 KL</a><a href="#s4-4">4.4 编码</a>
+      <a href="#s4-5">4.5 高斯情形</a>
+    </div>
+  </header>
+
+  <div class="lesson" id="s4-1">
+    <h3><span class="num">4.1</span>先补齐三个概率概念</h3>
+    <p><b>条件概率</b>：已知 $B$ 发生时 $A$ 的概率，$P(A\mid B)=\dfrac{P(A\cap B)}{P(B)}$。乘法形式更常用：$P(A\cap B)=P(A\mid B)P(B)$。</p>
+    <p><b>贝叶斯定理</b>：把「因果关系」倒过来用。</p>
+    <div class="mathbox">
+      <div class="cap">Bayes' theorem</div>
+      $$P(A\mid B)=\frac{P(B\mid A)\,P(A)}{P(B)}\qquad\text{posterior}\propto\text{likelihood}\times\text{prior}$$
+    </div>
+    <table class="sym">
+      <tr><th>prior</th><td>先验：还没看证据时对 $A$ 的信念。</td></tr>
+      <tr><th>likelihood</th><td>似然：如果 $A$ 成立，看到证据 $B$ 的可能性。</td></tr>
+      <tr><th>posterior</th><td>后验：看完证据后更新的信念。</td></tr>
+      <tr><th>$P(B)$</th><td>证据本身的总概率，通常用全概率公式展开：$P(B)=\sum_i P(B\mid A_i)P(A_i)$。</td></tr>
+    </table>
+    <p><b>独立</b>：$P(A\cap B)=P(A)P(B)$。不放回抽样<b>不独立</b>，这是例题 1 的坑。</p>
+  </div>
+
+  <div class="lesson" id="s4-2">
+    <h3><span class="num">4.2</span>熵：平均要几个 bit 才说得清</h3>
+    <p>
+      一个事件越「意外」，信息量越大。定义单个事件的信息量为 $-\log p$：概率 1 的事件没有信息（$-\log1=0$），
+      概率 1/8 的事件有 3 bit 信息。熵就是信息量的<b>期望</b>：
+    </p>
+    <div class="mathbox">
+      <div class="cap">熵（entropy）</div>
+      $$H(p)=-\sum_i p_i\log p_i$$
+    </div>
+    <table class="sym">
+      <tr><th>单位</th><td>$\log_2$ → <b>bits</b>；$\ln$ → <b>nats</b>。两者差一个常数 $\ln2$，题目不指定时任选但要写明。</td></tr>
+      <tr><th>约定</th><td>$0\log0=0$（概率 0 的事件不贡献信息）。</td></tr>
+      <tr><th>范围</th><td>$0\le H\le\log n$。均匀分布取最大值 $\log n$，确定性分布取 0。</td></tr>
+    </table>
+    <div class="callout note">
+      <span class="tag">直觉</span>
+      均匀分布最「难猜」，所以熵最大；全押一个结果最容易猜，熵为 0。
+      熵衡量的是<b>不确定性</b>，不是「数量」。
+    </div>
+  </div>
+
+  <div class="lesson" id="s4-3">
+    <h3><span class="num">4.3</span>交叉熵与 KL：密码本用错了要付多少</h3>
+    <p>
+      假设真实分布是 $p$，但你按 $q$ 来设计编码。平均码长就是<b>交叉熵</b>：$H(p,q)=-\sum_i p_i\log q_i$。
+      它一定不小于 $H(p)$，多出来的部分就是 KL 散度：
+    </p>
+    <div class="mathbox">
+      <div class="cap">三个量的关系</div>
+      $$D_{\mathrm{KL}}(p\Vert q)=\sum_i p_i\log\frac{p_i}{q_i}=H(p,q)-H(p)$$
+      $$\text{且}\quad D_{\mathrm{KL}}(p\Vert q)\ge 0,\qquad =0\iff p=q$$
+    </div>
+    <table class="sym">
+      <caption>KL 的三条性质（考试必答）</caption>
+      <tr><th>非负</th><td>由 $\ln x\le x-1$ 可证（Jensen 不等式）。</td></tr>
+      <tr><th>不满足对称</th><td>$D(p\Vert q)\ne D(q\Vert p)$，所以它<b>不是距离</b>（不满足三角不等式）。</td></tr>
+      <tr><th>不满足三角不等式</th><td>这也是「散度 divergence」而不叫「距离 distance」的原因。</td></tr>
+    </table>
+
+    <div class="viz" data-viz="entropy">
+      <div class="viz-head">
+        <span class="lab">LAB 06</span><h5>拖动 p、q 的柱子，看 KL 怎么变</h5>
+        <span class="hint">8 个滑块可拖</span>
+      </div>
+      <div class="viz-body"></div>
+      <div class="viz-note">
+        试着只把 $q_1$ 从 0.5 拖到 0.05：$D(p\Vert q)$ 会爆得比 $D(q\Vert p)$ 快得多。
+        原因：$D(p\Vert q)$ 里权重是 $p_i$，只要 $p_i\gt 0$ 而 $q_i\to0$，$\log(p_i/q_i)\to\infty$，惩罚是<b>无限大</b>。
+        这就是「KL 会重罚漏掉的概率质量」。
+      </div>
+    </div>
+  </div>
+
+  <div class="lesson" id="s4-4">
+    <h3><span class="num">4.4</span>Huffman 编码：熵是可达到的下界</h3>
+    <p>给每个符号分配一串 0/1，使平均码长最短，做法是每次合并概率最小的两个：</p>
+    <ol>
+      <li>把概率排序，取最小的两个合并成新节点，概率相加。</li>
+      <li>重复直到只剩一个根。</li>
+      <li>从根往下走，左 0 右 1（或反过来），得到每个符号的码字。</li>
+    </ol>
+    <p>
+      Huffman 的平均码长 $L$ 满足 $H(p)\le L\lt H(p)+1$。当且仅当所有概率都是 $2^{-k}$ 形式时，$L=H(p)$ 可以精确达到。
+    </p>
+    <div class="callout why">
+      <span class="tag">为什么 $L\ge H$</span>
+      任何前缀码的平均码长都不可能低于熵，否则就相当于「无损压缩超过了信息量」，违反信息论。这是考试里解释题的标答。
+    </div>
+  </div>
+
+  <div class="lesson" id="s4-5">
+    <h3><span class="num">4.5</span>高斯情形：只需要协方差</h3>
+    <p>多维高斯的熵只取决于协方差，与均值无关（均值只是平移，不改变「摊开的程度」）：</p>
+    <div class="mathbox">
+      <div class="cap">高斯熵（nats）</div>
+      $$H=\frac{1}{2}\ln\left[(2\pi e)^d\det\Sigma\right]$$
+      <div class="cap" style="margin-top:10px">两个高斯的 KL</div>
+      $$D_{\mathrm{KL}}(p\Vert q)=\frac{1}{2}\left[\operatorname{tr}(\Sigma_q^{-1}\Sigma_p)+\delta^{\top}\Sigma_q^{-1}\delta-d+\ln\frac{\det\Sigma_q}{\det\Sigma_p}\right],\quad \delta=\mu_p-\mu_q$$
+      <div class="cap" style="margin-top:10px">Wasserstein-2（对角协方差时）</div>
+      $$W_2^2=\lVert\mu_1-\mu_2\rVert^2+\sum_i(\sigma_{1,i}-\sigma_{2,i})^2$$
+    </div>
+    <div class="callout trap">
+      <span class="tag">KL 与 W₂ 的关键区别</span>
+      KL 对<b>支撑集不重叠</b>极度敏感（可能无穷大），而且不对称；$W_2$ 是真正的距离（对称、满足三角不等式），
+      即使两个分布完全分开也给出有限值。这就是 Wasserstein GAN 的动机。
+    </div>
+
+    <div class="viz" data-viz="gauss">
+      <div class="viz-head">
+        <span class="lab">LAB 07</span><h5>两个高斯：熵、KL、W₂ 同时变</h5>
+        <span class="hint">调 σ 和均值差</span>
+      </div>
+      <div class="viz-body"></div>
+      <div class="viz-note">
+        把 $q$ 的 $\sigma_1$ 拖到很小、均值差拉大：$D(p\Vert q)$ 会飙得比 $D(q\Vert p)$ 高一个量级。
+        与课内例题的数字（2.436 vs 23.21）对照着看，就明白「谁在分母上」有多重要。
+      </div>
+    </div>
+  </div>
+
+  <hr class="soft">
+  <h3 style="font-size:1.05rem;margin:0 0 4px">例题（课内原题）</h3>
+
+  <article class="card eg io">
+    <h4><span class="chip eg">例题 1</span>两个袋子（Tutorial 3 Q1，贝叶斯）</h4>
+    <div class="q">
+      <p>袋 1：2 红 3 白；袋 2：3 红 2 绿。随机选一个袋子，不放回取两个球，结果都是红。求「选的是袋 1」的概率。</p>
+    </div>
+    <button class="reveal">显示答案 ▼</button>
+    <div class="ans">
+      <p>先验 $P(B_1)=P(B_2)=0.5$。似然（不放回，第二个球受第一个影响）：</p>
+      <p>$P(RR\mid B_1)=\dfrac25\cdot\dfrac14=0.1$，$P(RR\mid B_2)=\dfrac35\cdot\dfrac24=0.3$。</p>
+      <p>$P(RR)=0.5(0.1)+0.5(0.3)=0.2$。</p>
+      <p>$P(B_1\mid RR)=\dfrac{0.5\times0.1}{0.2}=0.25$。</p>
+      <div class="res">$P(B_1\mid RR)=1/4$</div>
+      <p>直觉检查：袋 2 的红球更多，所以「看到两个红」反而让袋 2 更可能 —— 后验从 0.5 降到 0.25，方向正确。</p>
+    </div>
+  </article>
+
+  <article class="card eg io">
+    <h4><span class="chip eg">例题 2</span>离散熵与 KL（Tutorial 3 Q2）</h4>
+    <div class="q">
+      <p>$p=\langle\tfrac12,\tfrac14,\tfrac18,\tfrac18\rangle$，$q=\langle\tfrac14,\tfrac18,\tfrac18,\tfrac12\rangle$。求 $H(p)$、$D(q\Vert p)$、$D(p\Vert q)$，并解释哪个更大。</p>
+    </div>
+    <button class="reveal">显示答案 ▼</button>
+    <div class="ans">
+      <table class="grid">
+        <thead><tr><th>$i$</th><th class="num">$p_i$</th><th class="num">$q_i$</th><th class="num">$H$ 贡献</th><th class="num">$q\log(q/p)$</th><th class="num">$p\log(p/q)$</th></tr></thead>
+        <tbody>
+          <tr><td>1</td><td class="num">.5</td><td class="num">.25</td><td class="num">0.5</td><td class="num">−0.25</td><td class="num">0.5</td></tr>
+          <tr><td>2</td><td class="num">.25</td><td class="num">.125</td><td class="num">0.5</td><td class="num">−0.125</td><td class="num">0.25</td></tr>
+          <tr><td>3</td><td class="num">.125</td><td class="num">.125</td><td class="num">0.375</td><td class="num">0</td><td class="num">0</td></tr>
+          <tr><td>4</td><td class="num">.125</td><td class="num">.5</td><td class="num">0.375</td><td class="num">1.0</td><td class="num">−0.25</td></tr>
+          <tr class="hi"><td colspan="3">合计</td><td class="num">1.75</td><td class="num">0.625</td><td class="num">0.5</td></tr>
+        </tbody>
+      </table>
+      <div class="res">$H(p)=1.75$ bits，$D(q\Vert p)=0.625$，$D(p\Vert q)=0.5$</div>
+      <p>为什么 $D(q\Vert p)\gt D(p\Vert q)$？因为 $q$ 把 0.5 放在第 4 个符号上，而 $p$ 在那里只有 0.125：
+      用 $p$ 当密码本去编码 $q$，要在「$p$ 认为罕见」的符号上花很多 bit，代价更大。</p>
+    </div>
+  </article>
+
+  <article class="card eg io">
+    <h4><span class="chip eg">例题 3</span>两维高斯：熵、KL、W₂（Tutorial 3 Q3）</h4>
+    <div class="q">
+      <p>$q:\mu_1=(1,0),\Sigma_1=\mathrm{diag}(0.04,4)$；$p:\mu_2=(0,0),\Sigma_2=\mathrm{diag}(1,1)$。求 $H(p),H(q),D(q\Vert p),D(p\Vert q),W_2^2$。</p>
+    </div>
+    <button class="reveal">显示答案 ▼</button>
+    <div class="ans">
+      <p>$H(p)=\tfrac12\ln[(2\pi e)^2\cdot1]=2.838$；$H(q)=\tfrac12\ln[(2\pi e)^2\cdot0.16]=1.922$。</p>
+      <p>$D(q\Vert p)$：$\operatorname{tr}=0.04+4=4.04$，$\delta^{\top}\delta=1$，$\ln(1/0.16)=1.8326$，
+      故 $\tfrac12(4.04+1-2+1.8326)=2.436$。</p>
+      <p>$D(p\Vert q)$：$\operatorname{tr}=1/0.04+1/4=25.25$，$\delta^{\mathsf T}\Sigma_q^{-1}\delta=25$，$\ln(0.16)=-1.8326$，
+      故 $\tfrac12(25.25+25-2-1.8326)=23.21$。</p>
+      <p>$W_2^2=1^2+(0.2-1)^2+(2-1)^2=1+0.64+1=2.64$。</p>
+      <div class="res">$H=(2.838,\,1.922)$，$D(q\Vert p)=2.436$，$D(p\Vert q)=23.21$，$W_2^2=2.64$</div>
+      <p>把 $\sigma_1=0.2$ 放进分母，$1/0.04=25$ 直接主导了 $D(p\Vert q)$ —— 这就是「KL 对窄分布极敏感」的数值证据。</p>
+    </div>
+  </article>
+
+  <h3 style="font-size:1.05rem;margin:26px 0 4px">练习</h3>
+
+  <article class="card easy io">
+    <h4><span class="chip easy">易</span>练习 1 · 两个二项分布</h4>
+    <div class="q"><p>$p=\langle\tfrac12,\tfrac12\rangle$，$q=\langle\tfrac34,\tfrac14\rangle$。求 $H(p),H(q),D(p\Vert q),D(q\Vert p)$。</p></div>
+    <button class="reveal">显示答案 ▼</button>
+    <div class="ans">
+      <p>$H(p)=1$ bit；$H(q)=0.8113$ bit。</p>
+      <p>$D(p\Vert q)=0.5\log_2\frac{0.5}{0.75}+0.5\log_2\frac{0.5}{0.25}=-0.2925+0.5=0.2075$。</p>
+      <p>$D(q\Vert p)=0.75\log_2 1.5+0.25\log_2 0.5=0.4388-0.25=0.1887$。</p>
+      <div class="res">$D(p\Vert q)=0.2075$，$D(q\Vert p)=0.1887$</div>
+      <p>两者相近但不相等 —— 这就是「不对称」的最简单例子。</p>
+    </div>
+  </article>
+
+  <article class="card mid io">
+    <h4><span class="chip mid">练习 2</span>用熵判断编码效率</h4>
+    <div class="q"><p>某分布 $H=1.75$ bits，最优二元前缀码的平均码长可能是多少？若实际是 2.0 bit，说明什么？</p></div>
+    <button class="reveal">显示答案 ▼</button>
+    <div class="ans">
+      <p>任何前缀码满足 $H\le L\lt H+1$，即 $1.75\le L\lt 2.75$。Huffman 达到区间内的最小可实现值（本例恰为 1.75，因为概率都是 2 的负幂）。</p>
+      <p>$L=2.0$ 意味着比熵多 0.25 bit/符号，即编码效率 $\eta=H/L=87.5\%$，有 12.5% 的冗余。</p>
+      <div class="res">下界 1.75，冗余 0.25 bit/符号</div>
+    </div>
+  </article>
+
+  <article class="card hard io">
+    <h4><span class="chip hard">练习 3</span>单变量高斯的 KL</h4>
+    <div class="q"><p>$p=\mathcal N(0,1)$，$q=\mathcal N(1,4)$。求 $H(p),H(q),D(p\Vert q),D(q\Vert p)$（nats）。</p></div>
+    <button class="reveal">显示答案 ▼</button>
+    <div class="ans">
+      <p>$H(p)=\tfrac12\ln(2\pi e)=1.4189$；$H(q)=\tfrac12\ln(2\pi e\cdot4)=2.1121$。</p>
+      <p>$D(p\Vert q)=\tfrac12\left[\dfrac{1}{4}+\dfrac{1^2}{4}-1+\ln4\right]=\tfrac12(0.25+0.25-1+1.3863)=0.4431$。</p>
+      <p>$D(q\Vert p)=\tfrac12\left[4+1-1+\ln\tfrac14\right]=\tfrac12(4-1.3863)=1.3069$。</p>
+      <div class="res">$0.4431$ 与 $1.3069$</div>
+      <p>把 $q$ 的方差 4 放进 $D(p\Vert q)$ 的分子，所以它更小；反向要除以 4，所以更大。规律：<b>分母是哪个分布的方差，惩罚就往那个方向放大。</b></p>
+    </div>
+  </article>
+
+  <h3 style="font-size:1.05rem;margin:26px 0 4px">变种题</h3>
+
+  <article class="card var io">
+    <h4><span class="chip var">变种 1</span>证明 KL ≥ 0</h4>
+    <div class="q"><p>用 $\ln x\le x-1$ 证明 $D_{\mathrm{KL}}(p\Vert q)\ge0$，并说明等号条件。</p></div>
+    <button class="reveal">显示答案 ▼</button>
+    <div class="ans">
+      <p>$-D=\sum_i p_i\ln\frac{q_i}{p_i}\le\sum_i p_i\left(\frac{q_i}{p_i}-1\right)=\sum_i q_i-\sum_i p_i=1-1=0$。</p>
+      <p>故 $D\ge0$；等号当且仅当对所有 $p_i\gt 0$ 有 $q_i=p_i$，即 $p=q$。</p>
+      <div class="enbox">
+        <div class="tag">英文写法</div>
+        <p>“Using $\ln x\le x-1$ term by term gives $D_{\mathrm{KL}}(p\Vert q)\ge 0$, with equality iff $p=q$.”</p>
+      </div>
+    </div>
+  </article>
+
+  <article class="card var io">
+    <h4><span class="chip var">变种 2</span>把 bits 换成 nats</h4>
+    <div class="q"><p>若上题全部改用 $\ln$，$H(p)$、$D(q\Vert p)$ 分别是多少？换算系数是什么？</p></div>
+    <button class="reveal">显示答案 ▼</button>
+    <div class="ans">
+      <p>乘以 $\ln2=0.6931$：$H=1.75\times0.6931=1.2130$ nats，$D(q\Vert p)=0.625\times0.6931=0.4332$。</p>
+      <p>反之 nats → bits 除以 $\ln2$。KL 与熵同单位，换算一致，所以「哪个更大」的结论不变。</p>
+    </div>
+  </article>
+
+  <details class="gloss">
+    <summary>本章术语表</summary>
+    <div class="body">
+      <dl>
+        <dt>prior / posterior<em>先验 / 后验</em></dt><dd>看证据前 / 后的信念。</dd>
+        <dt>likelihood<em>似然</em></dt><dd>$P(\text{data}\mid\text{hypothesis})$。</dd>
+        <dt>entropy<em>熵</em></dt><dd>$-\sum p\log p$，平均不确定性 / 最短平均码长。</dd>
+        <dt>cross-entropy<em>交叉熵</em></dt><dd>$-\sum p\log q$，用 $q$ 编码 $p$ 的平均码长。</dd>
+        <dt>KL divergence<em>KL 散度</em></dt><dd>交叉熵减熵，非负、不对称。</dd>
+        <dt>relative entropy<em>相对熵</em></dt><dd>KL 的另一个名字。</dd>
+        <dt>Huffman coding<em>霍夫曼编码</em></dt><dd>最优前缀码，平均码长 $\in[H,H+1)$。</dd>
+        <dt>differential entropy<em>微分熵</em></dt><dd>连续分布的熵，可为负。</dd>
+        <dt>Wasserstein distance<em>W 距离</em></dt><dd>「推土机距离」，真正的度量。</dd>
+      </dl>
+    </div>
+  </details>
+
+  <label class="done"><input type="checkbox" data-id="ch4"> 标记本章已掌握</label>
+  <div class="chnav">
+    <a href="#ch3"><small>上一章</small>← 03 · 反向传播</a>
+    <a class="next" href="#ch5"><small>下一章</small>05 · 泛化与正则化 →</a>
+  </div>
+</section>

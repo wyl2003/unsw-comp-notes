@@ -1,0 +1,140 @@
+<section class="chapter" id="mock3">
+  <header class="chapter-head">
+    <div class="kicker">模拟卷 ③ · 挑战 · 90 分钟 · 50 分</div>
+    <h2>模拟考试 · 挑战卷</h2>
+    <p class="lead">
+      这张卷子不考记忆，考「能不能把学过的东西拼起来」：证明、构造、解释、权衡。目标 <b>35/50</b>。
+      如果某题完全没思路，先看答案的第一句话（通常就是解题方向），再合上自己写一遍。
+    </p>
+  </header>
+
+  <article class="card hard io">
+    <h4><span class="chip hard">Q1</span>用两个隐藏单元实现 XOR <span class="chip pts">8 分</span></h4>
+    <div class="q">
+      <p>构造一个 2-2-1 网络（隐藏层阶跃激活、输出层阶跃），实现 XOR：
+      $(0,0),(1,1)\to0$，$(0,1),(1,0)\to1$。写出所有权重并验证四个输入。</p>
+    </div>
+    <button class="reveal">显示答案 ▼</button>
+    <div class="ans">
+      <p>思路：$x_1\ \mathrm{OR}\ x_2$ 减去 $x_1\ \mathrm{AND}\ x_2$。取</p>
+      <p>隐藏 1（OR）：$h_1=\mathrm{step}(x_1+x_2-0.5)$；隐藏 2（AND）：$h_2=\mathrm{step}(x_1+x_2-1.5)$。</p>
+      <p>输出：$y=\mathrm{step}(h_1-h_2-0.5)$。</p>
+      <table class="grid">
+        <thead><tr><th>$x$</th><th class="num">$h_1$</th><th class="num">$h_2$</th><th class="num">$h_1-h_2-0.5$</th><th class="num">$y$</th></tr></thead>
+        <tbody>
+          <tr><td>(0,0)</td><td class="num">0</td><td class="num">0</td><td class="num">−0.5</td><td class="num">0</td></tr>
+          <tr><td>(0,1)</td><td class="num">1</td><td class="num">0</td><td class="num">0.5</td><td class="num">1</td></tr>
+          <tr><td>(1,0)</td><td class="num">1</td><td class="num">0</td><td class="num">0.5</td><td class="num">1</td></tr>
+          <tr><td>(1,1)</td><td class="num">1</td><td class="num">1</td><td class="num">−0.5</td><td class="num">0</td></tr>
+        </tbody>
+      </table>
+      <div class="res">隐藏层把平面折了一次，输出层就能用一条线切开</div>
+      <p>评分：结构正确 3 分，权重 2 分，验证表 3 分。若用 tanh/sigmoid 并给出阈值也算对。</p>
+    </div>
+  </article>
+
+  <article class="card hard io">
+    <h4><span class="chip hard">Q2</span>KL 的不对称与 W₂ <span class="chip pts">8 分</span></h4>
+    <div class="q">
+      <p>$p=\mathcal N(0,0.01)$，$q=\mathcal N(0,1)$。(a) 求 $D(p\Vert q)$ 与 $D(q\Vert p)$；(b) 求 $W_2^2$；
+      (c) 用这三个数解释「为什么 GAN 有时用 Wasserstein 距离」。</p>
+    </div>
+    <button class="reveal">显示答案 ▼</button>
+    <div class="ans">
+      <p>(a) $D(p\Vert q)=\tfrac12\left[0.01+0-1+\ln(1/0.01)\right]=\tfrac12(0.01-1+4.6052)=1.8076$。</p>
+      <p>$D(q\Vert p)=\tfrac12\left[100+0-1+\ln(0.01)\right]=\tfrac12(99-4.6052)=47.1974$。</p>
+      <p>(b) 均值相同，$W_2^2=(\sigma_p-\sigma_q)^2=(0.1-1)^2=0.81$。</p>
+      <p>(c) 两者均值完全一样，只差「宽度」，KL 却给出 1.8 与 47.2 两个差 26 倍的值，而且没有上界；
+      $W_2$ 给出温和的 0.81，且满足距离公理、在分布支撑不重叠时仍然有限、提供的梯度更平滑 —— 所以 WGAN 用它能稳定训练。</p>
+      <div class="res">$1.8076$，$47.1974$，$0.81$</div>
+    </div>
+  </article>
+
+  <article class="card mid io">
+    <h4><span class="chip mid">Q3</span>连接数 vs 参数量 <span class="chip pts">6 分</span></h4>
+    <div class="q">
+      <p>某卷积层：输入 $14\times14\times32$，64 个 $3\times3$ 卷积，stride 1，无 padding。求神经元数、连接数、独立参数，并解释三者为什么差这么多。</p>
+    </div>
+    <button class="reveal">显示答案 ▼</button>
+    <div class="ans">
+      <p>输出 $12\times12\times64$，神经元 $144\times64=9216$。</p>
+      <p>每个神经元接收 $1+3\times3\times32=289$ 个输入，连接数 $9216\times289=2\,663\,424$。</p>
+      <p>参数 $64\times289=18\,496$。</p>
+      <p>差别来自权重共享：同一个 filter 在 144 个位置上复用，所以参数只有连接数的 $1/144$。</p>
+      <div class="res">9216 / 2 663 424 / 18 496</div>
+    </div>
+  </article>
+
+  <article class="card hard io">
+    <h4><span class="chip hard">Q4</span>为什么 SRN 学不会 Embedded Reber <span class="chip pts">8 分</span></h4>
+    <div class="q">
+      <p>SRN 对串 BPBPTTVVEPE 的倒数第二个符号给出 P(T)=0.49、P(P)=0.51。计算 final error，并解释它到底学到了什么、没学到什么。</p>
+    </div>
+    <button class="reveal">显示答案 ▼</button>
+    <div class="ans">
+      <p>目标：P 为 1，其余 6 个为 0。平方误差平均到 7 个输出：</p>
+      <p>$\text{final}=\dfrac{0.49^2+(1-0.51)^2}{7}=\dfrac{0.4802}{7}=0.0686$。</p>
+      <p>纯 50/50 猜是 $2(0.5^2)/7=0.0714$ —— 它几乎就是猜。</p>
+      <p>它学会了内层 Reber 语法（其余位置误差约 0.002），但没学会「记住外层是 T 还是 P」这个长程依赖。</p>
+      <div class="res">0.0686，接近纯猜的 0.0714</div>
+      <p>原因：SRN 的记忆每步都被 tanh 与权重压缩，梯度沿时间连乘衰减；LSTM 用 cell 状态与接近 1 的遗忘门把信息原样携带。</p>
+    </div>
+  </article>
+
+  <article class="card hard io">
+    <h4><span class="chip hard">Q5</span>手算一次注意力 <span class="chip pts">8 分</span></h4>
+    <div class="q">
+      <p>$q=(1,0)$，$k_1=(1,0)$，$k_2=(0,1)$，$v_1=(1,2)$，$v_2=(3,0)$，$d_k=2$。求注意力权重与输出向量。</p>
+    </div>
+    <button class="reveal">显示答案 ▼</button>
+    <div class="ans">
+      <p>打分：$q\cdot k_1=1$，$q\cdot k_2=0$；除以 $\sqrt2$ 得 $(0.7071,\,0)$。</p>
+      <p>softmax：$e^{0.7071}=2.028$，$e^{0}=1$，和 $3.028$，权重 $(0.670,\,0.330)$。</p>
+      <p>输出 $=0.670(1,2)+0.330(3,0)=(0.670+0.990,\;1.340)=(1.660,\,1.340)$。</p>
+      <div class="res">$(0.670,\,0.330)$，输出 $(1.66,\,1.34)$</div>
+      <p>注意输出不是「选中某一个 value」，而是所有 value 的加权平均。</p>
+    </div>
+  </article>
+
+  <article class="card mid io">
+    <h4><span class="chip mid">Q6</span>推导策略切换点 <span class="chip pts">6 分</span></h4>
+    <div class="q">
+      <p>用第 10 章 MDP，证明 $\pi_{21}$ 与 $\pi_{22}$ 在 $\gamma=0.8$ 处给出相同的 $V(S_1)$，并说明 $\gamma$ 超过 0.8 后策略如何变化。</p>
+    </div>
+    <button class="reveal">显示答案 ▼</button>
+    <div class="ans">
+      <p>$\pi_{21}$：$V_1=\dfrac{-2+7\gamma}{1-\gamma^2}$；$\pi_{22}$：$V_1=-2+\dfrac{3\gamma}{1-\gamma}$。</p>
+      <p>令两者相等并交叉相乘：$(-2+5\gamma)(1+\gamma)=-2+7\gamma\Rightarrow5\gamma^2+3\gamma=7\gamma\Rightarrow5\gamma^2=4\gamma\Rightarrow\gamma=0.8$。</p>
+      <p>$\gamma\gt 0.8$ 时 $\pi_{22}$ 更优：$S_1$ 也选 $a_2$，永远留在 $S_2$ 拿 +3，不再为了 +7 付 −2 的过路费。</p>
+      <div class="res">$\gamma=0.8$；之后 $\pi^*=(a_2,a_2)$</div>
+    </div>
+  </article>
+
+  <article class="card var io">
+    <h4><span class="chip var">Q7</span>设计题：给任务选架构 <span class="chip pts">6 分</span></h4>
+    <div class="q">
+      <p>任务：从 10 秒的音频片段判断说话人情绪（5 类）。数据 2 万条，标注噪声较大。给出架构、损失、正则与评估方案，并说明每个选择的理由。</p>
+    </div>
+    <button class="reveal">显示答案 ▼</button>
+    <div class="ans">
+      <p><b>输入</b>：把音频转成 log-mel 频谱图（时间 × 频率），当作「图像」。</p>
+      <p><b>架构</b>：CNN 提取局部时频模式 → 沿时间做池化/注意力 → softmax 5 类；若需要建模长时依赖，用 CNN + 双向 LSTM 或小型 Transformer。</p>
+      <p><b>损失</b>：交叉熵（多分类），配合 label smoothing 应对标注噪声。</p>
+      <p><b>正则</b>：dropout、权重衰减、数据增强（加噪、时移、变速、SpecAugment）。</p>
+      <p><b>评估</b>：分层 5 折交叉验证，报告宏平均 F1 与混淆矩阵；用验证集早停，测试集只在最后用一次。</p>
+      <div class="res">CNN(+注意力/LSTM) + CE + label smoothing + 增强</div>
+      <p>评分：架构 2 分，损失 1 分，正则 1 分，评估 1 分，理由充分 1 分。没有唯一答案，逻辑自洽即可。</p>
+    </div>
+  </article>
+
+  <div class="callout note" style="margin-top:24px">
+    <span class="tag">评分参考</span>
+    40–50：可以放心去考。32–39：重点补 Q1、Q5（构造与手算）。低于 32：先把三张卷子的错题按章节归类，再重读对应模块。
+  </div>
+
+  <label class="done"><input type="checkbox" data-id="mock3"> 标记本卷已完成</label>
+  <div class="chnav">
+    <a href="#mock2"><small>上一卷</small>← 模拟卷 ② 进阶</a>
+    <a class="next" href="#ch1"><small>回到开头</small>01 · 神经元 →</a>
+  </div>
+</section>

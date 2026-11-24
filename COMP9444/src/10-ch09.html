@@ -1,0 +1,288 @@
+<section class="chapter" id="ch9">
+  <header class="chapter-head">
+    <div class="kicker">模块 09 · Lecture 6 / 7 · Tutorial 9 Q1</div>
+    <h2>自编码器、对抗样本、词向量</h2>
+    <p class="lead">
+      这一章讲「表示」的三张面孔：<b>自编码器</b>用「压缩再还原」逼网络学出有用的中间表示；
+      <b>对抗样本</b>揭示这些表示有多脆弱；<b>词向量</b>则把词变成向量，让「相似」变成「距离小」。
+      最后一部分是课内原题：从一句话的共现矩阵一路算到余弦相似度和类比。
+    </p>
+    <div class="glance">
+      <div><h5>考试怎么考</h5>画/解释自编码器结构与损失；写 FGSM 公式并说明为什么人眼看不出来；算共现矩阵、余弦相似度、词向量类比。</div>
+      <div><h5>你需要先会</h5>矩阵乘法、SVD 的概念、余弦公式、梯度。</div>
+    </div>
+    <div class="minitoc">
+      <a href="#s9-1">9.1 自编码器</a><a href="#s9-2">9.2 对抗样本</a>
+      <a href="#s9-3">9.3 共现矩阵</a><a href="#s9-4">9.4 余弦与类比</a>
+    </div>
+  </header>
+
+  <div class="lesson" id="s9-1">
+    <h3><span class="num">9.1</span>自编码器：把输入压扁再还原</h3>
+    <p>
+      自编码器（autoencoder）是一个「输入 = 输出」的网络：中间窄、两边宽。它被强迫用很少的几个数
+      重建整个输入，于是瓶颈（bottleneck）里必须留下最重要的信息 —— 这就是它学到的表示。
+    </p>
+    <div class="mathbox">
+      <div class="cap">编码 → 解码</div>
+      $$h=f(W_e x+b_e)\qquad \hat x=g(W_d h+b_d)$$
+      $$E=\lVert x-\hat x\rVert^2\quad\text{（或交叉熵）}$$
+    </div>
+    <table class="sym">
+      <tr><th>encoder</th><td>把 $x$ 压成 $h$；$h$ 的维度叫瓶颈宽度。</td></tr>
+      <tr><th>decoder</th><td>从 $h$ 重建 $\hat x$；训练目标是让 $\hat x\approx x$。</td></tr>
+      <tr><th>为什么不算「抄答案」</th><td>瓶颈比输入窄，信息必须被压缩；若宽度 ≥ 输入维度且线性，网络可以直接学恒等映射，什么也不学。</td></tr>
+    </table>
+    <div class="callout note">
+      <span class="tag">三个常见变体</span>
+      <b>去噪自编码器</b>（denoising）：输入加噪、目标用干净数据，逼网络学「去掉噪声」而不是恒等；
+      <b>稀疏自编码器</b>（sparse）：在损失里加 $\lambda\lVert h\rVert_1$，让大部分隐藏单元为 0；
+      <b>变分自编码器</b>（VAE）：让 $h$ 服从高斯分布，可以采样生成新样本。
+    </div>
+    <p>
+      自编码器与 PCA 的关系：<b>线性</b>自编码器 + 平方误差，其最优解张成的子空间与 PCA 相同。
+      这句话是考试里解释「自编码器学到了什么」的标准答案。
+    </p>
+  </div>
+
+  <div class="lesson" id="s9-2">
+    <h3><span class="num">9.2</span>对抗样本：加一点点噪声，判若两图</h3>
+    <p>
+      在图像上加上人眼完全看不出的一层扰动，就能让分类器给出完全错误的答案。最经典的构造是 <b>FGSM</b>：
+      沿着让损失<b>上升</b>最快的方向走一步。
+    </p>
+    <div class="mathbox">
+      <div class="cap">Fast Gradient Sign Method</div>
+      $$x'=x+\varepsilon\,\mathrm{sign}\!\left(\nabla_x E(f(x),t)\right)$$
+    </div>
+    <table class="sym">
+      <tr><th>$\varepsilon$</th><td>扰动幅度，例如 $8/255$。人眼几乎不可见。</td></tr>
+      <tr><th>$\mathrm{sign}(\cdot)$</th><td>只取方向（$\pm1$），让每个像素都朝「最坏」的方向动一小步。</td></tr>
+      <tr><th>$\nabla_x E$</th><td>损失对<b>输入</b>的梯度 —— 反向传播不只算权重梯度，也能算输入梯度。</td></tr>
+    </table>
+    <div class="callout why">
+      <span class="tag">为什么会成功</span>
+      高维空间里，每个像素都加一点点，累积起来的内积可以很大（$\varepsilon d$ 量级）。模型在高维中学习的决策边界
+      往往贴着数据点，稍微一推就过界。这也说明「模型学到的是纹理/统计相关性，不是人类的概念」。
+    </div>
+    <p>防御思路：对抗训练（把对抗样本混进训练集）、输入预处理、梯度掩蔽（但常被更强的攻击绕过）。</p>
+
+    <div class="callout exam">
+      <span class="tag">一句话答案</span>
+      “Adversarial examples exploit the high-dimensional geometry of the input space: a perturbation bounded by $\varepsilon$ in every pixel can move the activation across the decision boundary while remaining imperceptible.”
+    </div>
+  </div>
+
+  <div class="lesson" id="s9-3">
+    <h3><span class="num">9.3</span>词向量（一）：从共现矩阵出发</h3>
+    <p>
+      词向量的核心假设是<b>分布式假设</b>（distributional hypothesis）：<i>一个词的含义由它周围的词决定</i>。
+      所以先数「谁和谁在窗口内一起出现」，得到一个共现矩阵 $X$，再把它压成低维向量。
+    </p>
+    <p>课内句子：<i>“two flowers grew tall on two tall towers”</i>，窗口 4（左右各 2 个词），词表按字母序：flowers, grew, on, tall, towers, two。</p>
+    <table class="grid">
+      <thead>
+        <tr><th></th><th>flowers</th><th>grew</th><th>on</th><th>tall</th><th>towers</th><th>two</th></tr>
+      </thead>
+      <tbody>
+        <tr><td><b>flowers</b></td><td class="num">0</td><td class="num">1</td><td class="num">0</td><td class="num">1</td><td class="num">0</td><td class="num">1</td></tr>
+        <tr><td><b>grew</b></td><td class="num">1</td><td class="num">0</td><td class="num">1</td><td class="num">1</td><td class="num">0</td><td class="num">1</td></tr>
+        <tr><td><b>on</b></td><td class="num">0</td><td class="num">1</td><td class="num">0</td><td class="num">2</td><td class="num">0</td><td class="num">1</td></tr>
+        <tr><td><b>tall</b></td><td class="num">1</td><td class="num">1</td><td class="num">2</td><td class="num">0</td><td class="num">1</td><td class="num">2</td></tr>
+        <tr><td><b>towers</b></td><td class="num">0</td><td class="num">0</td><td class="num">0</td><td class="num">1</td><td class="num">0</td><td class="num">1</td></tr>
+        <tr><td><b>two</b></td><td class="num">1</td><td class="num">1</td><td class="num">1</td><td class="num">2</td><td class="num">1</td><td class="num">0</td></tr>
+      </tbody>
+    </table>
+    <p>
+      核对方法：<i>tall</i> 与 <i>on</i> 出现两次 —— “grew <u>tall</u> <u>on</u>” 和 “<u>on</u> two <u>tall</u>”。
+      窗口内的词对<b>双向</b>都记一次，所以矩阵近似对称。
+    </p>
+    <p>对 $X$ 做 SVD：$X=USV^{\mathsf T}$，奇异值为 $4.83,2.53,1.70,1.10,0.40,0.11$。取前两列 $U_{i1},U_{i2}$ 作为二维词向量：</p>
+    <table class="grid">
+      <thead><tr><th>词</th><th class="num">U₁</th><th class="num">U₂</th></tr></thead>
+      <tbody>
+        <tr><td>flowers</td><td class="num">−0.30</td><td class="num">0.24</td></tr>
+        <tr><td>grew</td><td class="num">−0.37</td><td class="num">−0.11</td></tr>
+        <tr><td>on</td><td class="num">−0.41</td><td class="num">0.53</td></tr>
+        <tr><td>tall</td><td class="num">−0.56</td><td class="num">−0.74</td></tr>
+        <tr><td>towers</td><td class="num">−0.22</td><td class="num">0.19</td></tr>
+        <tr><td>two</td><td class="num">−0.50</td><td class="num">0.25</td></tr>
+      </tbody>
+    </table>
+    <div class="viz" data-viz="wordvec">
+      <div class="viz-head">
+        <span class="lab">LAB 12</span><h5>点词看余弦；再切到「类比」算 king−man+woman</h5>
+        <span class="hint">可切换两组数据</span>
+      </div>
+      <div class="viz-body"></div>
+      <div class="viz-note">
+        在「课内例子」里点 flowers：与 towers 的余弦接近 1，与 tall 接近 0 —— 两个词从没挨着出现过，却因为「周围词相似」
+        而成为邻居。切到「类比」再点「算类比」，看紫色箭头走完平行四边形。
+      </div>
+    </div>
+    <p>读图的三个结论：</p>
+    <ul>
+      <li><b>flowers 与 towers 最近</b>（距离约 0.09）：两者都与 tall、two 共现，且都不与 on 共现 —— 上下文相似 → 向量相似。</li>
+      <li><b>tall 离大家最远</b>：它与每个词都共现，且与 on、two 各共现两次，行向量最特别；它主要决定了第二维（−0.74）。</li>
+      <li><b>符号可以整体翻转</b>：$U$ 的某一列乘 $-1$、$V$ 对应列也乘 $-1$，$X$ 不变，所以图可以镜像。答题时提一句能显示理解。</li>
+    </ul>
+  </div>
+
+  <div class="lesson" id="s9-4">
+    <h3><span class="num">9.4</span>词向量（二）：余弦相似度与类比</h3>
+    <div class="mathbox">
+      <div class="cap">余弦相似度（只看方向，不看长度）</div>
+      $$\cos(a,b)=\frac{a\cdot b}{\lVert a\rVert\,\lVert b\rVert}\in[-1,1]$$
+    </div>
+    <p>用上面的二维向量算三对：</p>
+    <table class="grid">
+      <thead><tr><th>词对</th><th>点积</th><th>模长</th><th class="num">余弦</th><th>解读</th></tr></thead>
+      <tbody>
+        <tr><td>flowers, towers</td><td>0.1116</td><td>0.384, 0.291</td><td class="num">0.999</td><td>几乎同向 → 上下文几乎一样</td></tr>
+        <tr><td>flowers, tall</td><td>−0.0096</td><td>0.384, 0.928</td><td class="num">−0.027</td><td>接近正交 → 几乎无关</td></tr>
+        <tr><td>two, on</td><td>0.3375</td><td>0.559, 0.670</td><td class="num">0.901</td><td>高度相似</td></tr>
+      </tbody>
+    </table>
+    <p><b>类比</b>：给定 man→king、woman→?，算 $v(\text{king})-v(\text{man})+v(\text{woman})$，再找余弦最高的词。</p>
+    <div class="mathbox eq">
+      $$(4,3)-(1,2)+(1,-1)=(4,0)$$
+      $$\cos((4,0),\text{queen}(3.5,0.5))=\frac{14}{4\times3.536}=0.990,\qquad
+        \cos((4,0),\text{apple}(-2,1))=\frac{-8}{4\times2.236}=-0.894$$
+    </div>
+    <div class="res" style="display:inline-block;margin:8px 0;padding:8px 12px;background:var(--green-soft);border:1px solid #cbe8d5;border-radius:7px">
+      答案：queen（0.990），apple 只有 −0.894
+    </div>
+    <p>
+      为什么题目要「排除问题里的三个词」？因为 $v(\text{king})-v(\text{man})+v(\text{woman})$ 与 $v(\text{king})$ 的余弦往往也很高
+      （方向接近），不排除的话，最近邻经常就是 king 自己。排除后剩下的最高分才是真正的答案。
+    </p>
+    <div class="callout note">
+      <span class="tag">词向量的四个经典结论</span>
+      ① 相似词向量相近；② 向量差编码关系（性别、时态、国名—首都）；③ 维度通常 50–300，远小于词表；
+      ④ 可以从共现矩阵（SVD/GloVe）或预测任务（word2vec 的 skip-gram/CBOW）得到。
+    </div>
+  </div>
+
+  <hr class="soft">
+  <h3 style="font-size:1.05rem;margin:0 0 4px">例题（课内原题）</h3>
+
+  <article class="card eg io">
+    <h4><span class="chip eg">例题 1</span>共现矩阵 → 词向量 → 余弦 → 类比（Tutorial 9 Q1）</h4>
+    <div class="q">
+      <p>对 “two flowers grew tall on two tall towers”（窗口 4）：
+      (a) 写共现矩阵；(b) 用 SVD 前两列画点，指出最近/最远的词并解释；(c) 算三对余弦；(d) 第一列的符号说明什么；(e) 用给定向量解 king−man+woman。</p>
+    </div>
+    <button class="reveal">显示答案 ▼</button>
+    <div class="ans">
+      <p>(a) 见 9.3 节的 6×6 表格。</p>
+      <p>(b) flowers 与 towers 最近（约 0.09），因为二者上下文相同；tall 最远，因为它与所有词共现、且与 on/two 各两次。</p>
+      <p>(c) $0.999$、$-0.027$、$0.901$ —— 与 (b) 的目测一致。</p>
+      <p>(d) 第一列全为负，且 |值| 从大到小大致是 tall &gt; two &gt; on &gt; grew &gt; flowers &gt; towers。
+      它更像是在编码「这个词有多常见/多中心」这类整体频率信息，而不是语义类别。</p>
+      <p>(e) $(4,3)-(1,2)+(1,-1)=(4,0)$，与 queen 余弦 0.990，与 apple 余弦 −0.894。</p>
+      <div class="res">queen</div>
+      <div class="enbox">
+        <div class="tag">英文写法</div>
+        <p>“Words that occur in similar contexts receive similar vectors, so flowers and towers are close even though they never co-occur directly.”</p>
+      </div>
+    </div>
+  </article>
+
+  <article class="card eg io">
+    <h4><span class="chip eg">例题 2</span>自编码器的瓶颈</h4>
+    <div class="q">
+      <p>一个 8→3→8 的自编码器用平方误差训练。若隐藏层是线性的、且不加任何正则，它可能学到什么？若隐藏层是 ReLU 呢？</p>
+    </div>
+    <button class="reveal">显示答案 ▼</button>
+    <div class="ans">
+      <p>线性情形：最优解张成的子空间等于前 3 个主成分（PCA），即保留方差最大的三维方向，重建误差最小。</p>
+      <p>ReLU 情形：仍然压缩，但表示是分段线性的；可能学到稀疏、非负的特征（类似非负矩阵分解），对某些数据能得到更「局部」的部件。</p>
+      <p>若瓶颈宽度 ≥ 8 且线性，网络可以学恒等映射，$E=0$ 但什么表示也没学到 —— 所以瓶颈必须够窄，或加噪声/稀疏约束。</p>
+    </div>
+  </article>
+
+  <h3 style="font-size:1.05rem;margin:26px 0 4px">练习</h3>
+
+  <article class="card easy io">
+    <h4><span class="chip easy">易</span>练习 1 · 算一次余弦</h4>
+    <div class="q"><p>$a=(1,2)$，$b=(2,4)$，$c=(2,-1)$。求 $\cos(a,b)$ 与 $\cos(a,c)$。</p></div>
+    <button class="reveal">显示答案 ▼</button>
+    <div class="ans">
+      <p>$\cos(a,b)=\dfrac{2+8}{\sqrt5\sqrt{20}}=\dfrac{10}{10}=1$（同向）。</p>
+      <p>$\cos(a,c)=\dfrac{2-2}{\sqrt5\sqrt5}=0$（正交）。</p>
+      <div class="res">1 与 0</div>
+    </div>
+  </article>
+
+  <article class="card mid io">
+    <h4><span class="chip mid">练习 2</span>补一个共现计数</h4>
+    <div class="q"><p>句子 “the cat sat on the mat”，窗口 2（左右各 1）。写出 the 与 cat 的共现次数、cat 与 sat 的次数。</p></div>
+    <button class="reveal">显示答案 ▼</button>
+    <div class="ans">
+      <p>窗口 1 时只看紧邻：the–cat 出现 1 次（第一个 the 与 cat），cat–sat 1 次，sat–on 1 次，on–the 1 次，the–mat 1 次。</p>
+      <p>注意第二个 the 与 mat 相邻，也计 1 次；the 总共与 cat、on、mat 各共现 1 次。</p>
+      <div class="res">the–cat 1；cat–sat 1</div>
+    </div>
+  </article>
+
+  <article class="card hard io">
+    <h4><span class="chip hard">练习 3</span>FGSM 的手算</h4>
+    <div class="q">
+      <p>线性分类器 $s=w^{\mathsf T}x$，$w=(1,-2)$，$x=(0.5,0.5)$，真实类要求 $s\lt 0$。取 $\varepsilon=0.3$，求 FGSM 扰动后的 $x'$ 与新的 $s$。</p>
+    </div>
+    <button class="reveal">显示答案 ▼</button>
+    <div class="ans">
+      <p>$s=0.5-1=-0.5$（目前正确）。损失对输入的梯度是 $\pm w$；要让它变成正类，沿 $+w$ 方向走：$\mathrm{sign}(\nabla)= (1,-1)$。</p>
+      <p>$x'=(0.5,0.5)+0.3(1,-1)=(0.8,0.2)$，$s'=0.8-0.4=0.4\gt 0$ —— 分类被翻转。</p>
+      <div class="res">$x'=(0.8,0.2)$，$s'=0.4$</div>
+      <p>每个坐标只动了 0.3，但两个坐标方向一致地推动了 $s$，累积效果足够跨过边界。</p>
+    </div>
+  </article>
+
+  <h3 style="font-size:1.05rem;margin:26px 0 4px">变种题</h3>
+
+  <article class="card var io">
+    <h4><span class="chip var">变种 1</span>窗口变大</h4>
+    <div class="q"><p>若窗口改为 6（左右各 3），共现矩阵会怎样变化？对词向量有什么影响？</p></div>
+    <button class="reveal">显示答案 ▼</button>
+    <div class="ans">
+      <p>矩阵更稠密（更多非零），大部分词与所有词都共现，区分度下降，向量趋于相似。</p>
+      <p>窗口太小则矩阵太稀疏、看不到语义；太大则语义被冲淡。常用 5–10。也可用距离加权（越近权重越大）。</p>
+    </div>
+  </article>
+
+  <article class="card var io">
+    <h4><span class="chip var">变种 2</span>为什么用余弦而不是欧氏距离</h4>
+    <div class="q"><p>高频词的向量模长往往更大。这对欧氏距离和余弦分别有什么影响？</p></div>
+    <button class="reveal">显示答案 ▼</button>
+    <div class="ans">
+      <p>欧氏距离会被模长主导：高频词之间即使方向不同，也可能因为都「长」而显得远/近失真。</p>
+      <p>余弦只比较方向，天然消除模长影响，所以词向量相似度几乎都用余弦。若要 Euclidean，通常先做 L2 归一化。</p>
+    </div>
+  </article>
+
+  <details class="gloss">
+    <summary>本章术语表</summary>
+    <div class="body">
+      <dl>
+        <dt>autoencoder<em>自编码器</em></dt><dd>输入=输出的瓶颈网络，用于学表示。</dd>
+        <dt>bottleneck<em>瓶颈</em></dt><dd>维度最小的隐藏层。</dd>
+        <dt>denoising AE<em>去噪自编码器</em></dt><dd>输入加噪、目标干净，逼出鲁棒表示。</dd>
+        <dt>sparse AE<em>稀疏自编码器</em></dt><dd>惩罚隐藏层激活的 L1 范数。</dd>
+        <dt>adversarial example<em>对抗样本</em></dt><dd>加小扰动使模型判错、人眼无感。</dd>
+        <dt>FGSM<em>快速梯度符号法</em></dt><dd>$x'=x+\varepsilon\,\mathrm{sign}(\nabla_xE)$。</dd>
+        <dt>adversarial training<em>对抗训练</em></dt><dd>把对抗样本加入训练集。</dd>
+        <dt>co-occurrence matrix<em>共现矩阵</em></dt><dd>统计窗口内词对出现次数。</dd>
+        <dt>SVD<em>奇异值分解</em></dt><dd>$X=USV^{\mathsf T}$，取前几列做降维。</dd>
+        <dt>cosine similarity<em>余弦相似度</em></dt><dd>点积除以模长，衡量方向接近程度。</dd>
+        <dt>distributional hypothesis<em>分布式假设</em></dt><dd>词义由上下文决定。</dd>
+      </dl>
+    </div>
+  </details>
+
+  <label class="done"><input type="checkbox" data-id="ch9"> 标记本章已掌握</label>
+  <div class="chnav">
+    <a href="#ch8"><small>上一章</small>← 08 · 卷积网络</a>
+    <a class="next" href="#ch10"><small>下一章</small>10 · 强化学习与 Q-Learning →</a>
+  </div>
+</section>

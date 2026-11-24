@@ -1,0 +1,262 @@
+<section class="chapter" id="ch7">
+  <header class="chapter-head">
+    <div class="kicker">模块 07 · Lecture 4b · Tutorial 5 Q1–Q2</div>
+    <h2>Softmax 与交叉熵</h2>
+    <p class="lead">
+      分类网络最后一步要做两件事：把一堆任意实数变成<b>概率</b>（softmax），再用一个合适的损失衡量「概率错得多离谱」（交叉熵）。
+      这一对组合有一个漂亮的性质：<b>梯度恰好是「预测概率 − 目标概率」</b>。本章把它推出来，并回答课内那道「同一输入重复 100 次」的经典题。
+    </p>
+    <div class="glance">
+      <div><h5>考试怎么考</h5>算 softmax 值；求 $\partial\log p_i/\partial z_j$；证明 softmax + CE 的梯度是 $p-t$；讨论 SSE 与 CE 的最优点。</div>
+      <div><h5>你需要先会</h5>指数函数、商的求导、对数求导、偏导。</div>
+    </div>
+    <div class="minitoc">
+      <a href="#s7-1">7.1 Softmax</a><a href="#s7-2">7.2 数值稳定</a>
+      <a href="#s7-3">7.3 交叉熵</a><a href="#s7-4">7.4 梯度 = p − t</a>
+      <a href="#s7-5">7.5 重复输入的极限</a>
+    </div>
+  </header>
+
+  <div class="lesson" id="s7-1">
+    <h3><span class="num">7.1</span>Softmax：把分数变成概率</h3>
+    <p>
+      输出层给每个类别一个分数 $z_i$（logit）。分数可以是负的、可以大于 1，不能直接当概率。
+      softmax 先用指数把负数变正，再归一化：
+    </p>
+    <div class="mathbox">
+      <div class="cap">softmax</div>
+      $$p_i=\frac{e^{z_i}}{\sum_{j}e^{z_j}},\qquad p_i\gt 0,\quad\sum_i p_i=1$$
+    </div>
+    <table class="sym">
+      <tr><th>保序</th><td>$z_i\gt z_j\Rightarrow p_i\gt p_j$，不改变谁大谁小。</td></tr>
+      <tr><th>可放大差距</th><td>指数会把「大一点」放大成「大很多」。$z=(1,2,3)\to(0.09,0.24,0.67)$。</td></tr>
+      <tr><th>平移不变</th><td>$p_i(z+c)=p_i(z)$：所有 logit 加同一个数，概率不变。这条性质是数值稳定的关键。</td></tr>
+    </table>
+    <div class="callout why">
+      <span class="tag">为什么用指数而不是除以总和</span>
+      直接归一化（$z_i/\sum z_j$）在 $z$ 有负数时会给出负概率，而且对「领先」不敏感。
+      指数保证正值、可导、且与「log 概率 = logit − 常数」的概率模型（玻尔兹曼分布）一致。
+    </div>
+  </div>
+
+  <div class="lesson" id="s7-2">
+    <h3><span class="num">7.2</span>数值稳定：先减掉最大值</h3>
+    <p>若 $z=(1000,1001,1002)$，$e^{1002}$ 会溢出成 inf。利用平移不变性，先减最大值：</p>
+    <div class="mathbox eq">
+      $$p_i=\frac{e^{z_i-z_{\max}}}{\sum_j e^{z_j-z_{\max}}}$$
+    </div>
+    <p>此时指数的自变量都 $\le0$，最大项是 $e^0=1$，绝不会溢出。这是所有框架内部的做法，答题时写一句就能拿「工程意识」的分。</p>
+  </div>
+
+  <div class="lesson" id="s7-3">
+    <h3><span class="num">7.3</span>交叉熵：从最大似然推出来</h3>
+    <p>
+      设真实类别是 $c$（one-hot 目标 $t$）。模型认为「这张图是 $c$」的概率是 $p_c$。
+      最大似然要求把 $p_c$ 乘起来最大化，取负对数就变成最小化：
+    </p>
+    <div class="mathbox">
+      <div class="cap">交叉熵（多分类）</div>
+      $$E=-\sum_i t_i\log p_i=-\log p_c$$
+    </div>
+    <p>只有正确类那一项留下来。所以交叉熵的直观含义是：<b>给正确答案分配的概率越低，罚得越狠</b>（对数在 0 附近趋于无穷）。</p>
+    <div class="callout note">
+      <span class="tag">和第四章连起来</span>
+      $E=H(t,p)=H(t)+D_{\mathrm{KL}}(t\Vert p)$。因为 one-hot 的 $H(t)=0$，所以最小化交叉熵 = 最小化 $t$ 与 $p$ 的 KL。
+      这就是「分类 = 让预测分布贴近目标分布」。
+    </div>
+  </div>
+
+  <div class="lesson" id="s7-4">
+    <h3><span class="num">7.4</span>核心结论：梯度就是 $p-t$</h3>
+    <p>先求 softmax 自己对 logit 的导数（这个式子要会推）：</p>
+    <div class="mathbox">
+      <div class="cap">softmax 的雅可比</div>
+      $$\frac{\partial p_i}{\partial z_j}=p_i(\delta_{ij}-p_j)$$
+    </div>
+    <p>再对 $E=-\sum_k t_k\log p_k$ 用链式法则：</p>
+    <div class="mathbox eq">
+      $$\frac{\partial E}{\partial z_j}=-\sum_k\frac{t_k}{p_k}\frac{\partial p_k}{\partial z_j}
+        =-\sum_k\frac{t_k}{p_k}p_k(\delta_{kj}-p_j)
+        =-\left(t_j-p_j\sum_k t_k\right)=p_j-t_j$$
+    </div>
+    <div class="res" style="display:inline-block;margin:8px 0;padding:8px 12px;background:var(--green-soft);border:1px solid #cbe8d5;border-radius:7px">
+      $\dfrac{\partial E}{\partial z_j}=p_j-t_j$（用了 $\sum_k t_k=1$）
+    </div>
+    <p>
+      这个结果极其干净：<b>预测比目标大多少，就往下压多少</b>。而且它不会被 softmax 的饱和「压扁」——
+      即使预测错得离谱（$p_c\approx0$），梯度也接近 $-1$，学得动。
+    </p>
+    <div class="callout trap">
+      <span class="tag">不要用 SSE + softmax</span>
+      平方误差配 softmax 时，梯度里会多出 $p_i(\delta_{ij}-p_j)$ 这个因子。当预测极端错误时 $p$ 接近 one-hot，
+      该因子趋近 0，梯度消失，训练几乎停滞。这就是分类必须用交叉熵的原因。
+    </div>
+
+    <div class="viz" data-viz="softmax">
+      <div class="viz-head">
+        <span class="lab">LAB 10</span><h5>拖 logit 和温度，看概率与梯度</h5>
+        <span class="hint">可切换目标类</span>
+      </div>
+      <div class="viz-body"></div>
+      <div class="viz-note">
+        把 $T$ 拖到 0.2：概率变成「赢者通吃」；拖到 3：三类趋同。右侧「梯度 p − y」就是反向传播传回去的东西 ——
+        目标类为负，其余为正（要把它们压下去）。
+      </div>
+    </div>
+  </div>
+
+  <div class="lesson" id="s7-5">
+    <h3><span class="num">7.5</span>同一输入重复 100 次，网络会预测什么？</h3>
+    <p>
+      训练集只有一个输入，重复 100 次，其中 80 次目标为 1、20 次为 0。网络看不到任何能区分的特征，
+      它只能学到一个常数输出 $z$。问题变成：<b>什么 $z$ 让总损失最小？</b>
+    </p>
+    <p><b>平方误差</b>（注意课件这里把 $\tfrac12$ 写进了求和）：</p>
+    <div class="mathbox">
+      $$E=80\frac{(z-1)^2}{2}+20\frac{z^2}{2}
+        \quad\Longrightarrow\quad \frac{dE}{dz}=80(z-1)+20z=100z-80=0$$
+      $$\Longrightarrow\quad z=0.8$$
+    </div>
+    <p><b>交叉熵</b>：</p>
+    <div class="mathbox">
+      $$E=-80\log z-20\log(1-z)
+        \quad\Longrightarrow\quad \frac{dE}{dz}=-\frac{80}{z}+\frac{20}{1-z}=\frac{100z-80}{z(1-z)}=0$$
+      $$\Longrightarrow\quad z=0.8$$
+    </div>
+    <div class="res" style="display:inline-block;margin:8px 0;padding:8px 12px;background:var(--green-soft);border:1px solid #cbe8d5;border-radius:7px">
+      两种损失的最优解都是 $z=0.8$ —— 等于训练集里的相对频率
+    </div>
+    <p>
+      直觉：网络在无法区分的情况下，最优策略就是输出<b>后验概率</b> $P(y=1\mid x)=80/100$。
+      这是「最小化期望损失」的必然结果 —— 交叉熵对应对数损失，平方误差对应 Brier 分数，两者对概率预测的最优解相同。
+    </p>
+    <div class="callout note">
+      <span class="tag">但两者并不等价</span>
+      最优点相同，<b>优化难度与极端错误下的行为不同</b>：交叉熵在 $z\to0$ 或 $1$ 时梯度依然很大，
+      平方误差则趋近 0。所以实际分类仍用交叉熵。
+    </div>
+  </div>
+
+  <hr class="soft">
+  <h3 style="font-size:1.05rem;margin:0 0 4px">例题（课内原题）</h3>
+
+  <article class="card eg io">
+    <h4><span class="chip eg">例题 1</span>Softmax 与对数概率的导数（Tutorial 5 Q1）</h4>
+    <div class="q">
+      <p>$z_1=1,z_2=2,z_3=3$，正确类为 2。求 (a) $P(i)$；(b) $\dfrac{\partial\log P(2)}{\partial z_j}$，$j=1,2,3$。</p>
+      <span class="en">Compute the softmax probabilities and the derivatives of the log-probability of the correct class.</span>
+    </div>
+    <button class="reveal">显示答案 ▼</button>
+    <div class="ans">
+      <p>分母 $e^1+e^2+e^3=2.718+7.389+20.086=30.193$。</p>
+      <div class="step"><b>a</b><div>$P=(0.09,\;0.24,\;0.67)$（两位小数）。</div></div>
+      <p>b：由 $\log P(2)=z_2-\log\sum_j e^{z_j}$，</p>
+      <div class="step"><b>j=1</b><div>$-e^{z_1}/\sum=-0.09$</div></div>
+      <div class="step"><b>j=2</b><div>$1-e^{z_2}/\sum=1-0.24=0.76$</div></div>
+      <div class="step"><b>j=3</b><div>$-e^{z_3}/\sum=-0.67$</div></div>
+      <div class="res">$(-0.09,\;0.76,\;-0.67)=P-\text{onehot}(2)$</div>
+      <p>课内评注：每个偏导都正比于「预测概率与目标之差」—— 这就是 7.4 节的一般结论。</p>
+    </div>
+  </article>
+
+  <article class="card eg io">
+    <h4><span class="chip eg">例题 2</span>重复输入的最优点（Tutorial 5 Q2）</h4>
+    <div class="q">
+      <p>同一输入重复 100 次，80 次目标为 1、20 次为 0。分别用平方误差与交叉熵，求全局最优的预测值；换损失函数会改变结果吗？</p>
+    </div>
+    <button class="reveal">显示答案 ▼</button>
+    <div class="ans">
+      <p>平方误差：$dE/dz=80(z-1)+20z=0\Rightarrow z=0.8$。</p>
+      <p>交叉熵：$dE/dz=-80/z+20/(1-z)=0\Rightarrow 100z-80=0\Rightarrow z=0.8$。</p>
+      <div class="res">两者都是 0.8，即训练集的相对频率</div>
+      <p><b>结论</b>：在这个退化情形下，更换损失函数不改变全局最优。直觉上网络学到的是后验概率
+      $P(y=1\mid x)=0.8$，而两种损失都是「恰当评分规则」（proper scoring rule），最优点相同。</p>
+      <div class="enbox">
+        <div class="tag">英文写法</div>
+        <p>“At a global optimum the network predicts the empirical frequency, $z=0.8$, for both sum squared error and cross entropy, although their gradients differ away from the optimum.”</p>
+      </div>
+    </div>
+  </article>
+
+  <h3 style="font-size:1.05rem;margin:26px 0 4px">练习</h3>
+
+  <article class="card easy io">
+    <h4><span class="chip easy">易</span>练习 1 · 手算 softmax</h4>
+    <div class="q"><p>$z=(0,0,0)$ 与 $z=(0,0,\ln 3)$ 的 softmax 分别是什么？</p></div>
+    <button class="reveal">显示答案 ▼</button>
+    <div class="ans">
+      <p>全 0：$(1/3,1/3,1/3)$。</p>
+      <p>$z=(0,0,\ln3)$：分母 $1+1+3=5$，故 $(0.2,0.2,0.6)$。</p>
+      <p>顺带验证平移不变：给第二个向量全体减 $\ln3$ 得 $(-\ln3,-\ln3,0)$，结果一样。</p>
+    </div>
+  </article>
+
+  <article class="card mid io">
+    <h4><span class="chip mid">练习 2</span>算交叉熵与梯度</h4>
+    <div class="q"><p>$p=(0.1,0.2,0.7)$，目标为第 3 类。求 $E$ 与 $\partial E/\partial z$（用 2 为底或自然对数均可，注明）。</p></div>
+    <button class="reveal">显示答案 ▼</button>
+    <div class="ans">
+      <p>$E=-\ln0.7=0.3567$ nats（若用 $\log_2$ 则为 0.5146 bits）。</p>
+      <p>梯度 $=p-t=(0.1,\,0.2,\,-0.3)$：第 3 类要往上推（负梯度方向增大 $z_3$），前两类往下压。</p>
+      <div class="res">$E=0.3567$，梯度 $(0.1,0.2,-0.3)$</div>
+    </div>
+  </article>
+
+  <article class="card hard io">
+    <h4><span class="chip hard">练习 3</span>为什么 SSE + softmax 学得慢</h4>
+    <div class="q"><p>设 $E=\tfrac12\sum_i(p_i-t_i)^2$，输出 softmax。写出 $\partial E/\partial z_j$，并说明在「预测极度错误」时会发生什么。</p></div>
+    <button class="reveal">显示答案 ▼</button>
+    <div class="ans">
+      <p>$\dfrac{\partial E}{\partial z_j}=\sum_i(p_i-t_i)\,p_i(\delta_{ij}-p_j)=p_j\left[(p_j-t_j)-\sum_i(p_i-t_i)p_i\right]$。</p>
+      <p>当预测极度错误时（正确类 $p_c\to0$，某个错误类 $p_k\to1$），对正确类 logit 的梯度里含因子 $p_c\to0$，
+      于是几乎不动 —— 梯度消失。</p>
+      <div class="res">梯度含 $p_j$ 因子 → 极端错误时消失</div>
+      <p>交叉熵的梯度 $p-t$ 没有这个因子，所以在最该学的时刻梯度最大。</p>
+    </div>
+  </article>
+
+  <h3 style="font-size:1.05rem;margin:26px 0 4px">变种题</h3>
+
+  <article class="card var io">
+    <h4><span class="chip var">变种 1</span>加温度 T</h4>
+    <div class="q"><p>$p_i\propto e^{z_i/T}$。$T\to0$ 与 $T\to\infty$ 分别得到什么？有什么用？</p></div>
+    <button class="reveal">显示答案 ▼</button>
+    <div class="ans">
+      <p>$T\to0$：最大 logit 独占概率 1（argmax，one-hot）；$T\to\infty$：所有类趋近均匀。</p>
+      <p>用途：知识蒸馏（软标签）、采样多样性控制、模型校准。</p>
+    </div>
+  </article>
+
+  <article class="card var io">
+    <h4><span class="chip var">变种 2</span>标签平滑</h4>
+    <div class="q"><p>把目标从 one-hot 改成 $t=(0.9,0.05,0.05)$，最优点会怎么变？为什么能防过拟合？</p></div>
+    <button class="reveal">显示答案 ▼</button>
+    <div class="ans">
+      <p>最优点不再是「$p_c=1$」，而是 $p\approx t$。因为 logit 要有限大才能给出 0.9，网络不会把权重推到无穷。</p>
+      <p>这限制了模型置信度，减少对训练标签的过度自信，提升校准与泛化（label smoothing）。</p>
+    </div>
+  </article>
+
+  <details class="gloss">
+    <summary>本章术语表</summary>
+    <div class="body">
+      <dl>
+        <dt>logit<em>未归一化分数</em></dt><dd>softmax 之前的 $z_i$。</dd>
+        <dt>softmax<em>归一化指数</em></dt><dd>把实数向量变成概率分布。</dd>
+        <dt>cross-entropy<em>交叉熵</em></dt><dd>$-\sum t\log p$，分类的标准损失。</dd>
+        <dt>one-hot<em>独热编码</em></dt><dd>正确类为 1、其余为 0 的目标向量。</dd>
+        <dt>maximum likelihood<em>最大似然</em></dt><dd>选让观测数据概率最大的参数。</dd>
+        <dt>numerical stability<em>数值稳定</em></dt><dd>先减最大值再取指数，防溢出。</dd>
+        <dt>temperature<em>温度</em></dt><dd>控制 softmax 的锐度。</dd>
+        <dt>label smoothing<em>标签平滑</em></dt><dd>把 one-hot 目标软化，抑制过度自信。</dd>
+        <dt>proper scoring rule<em>恰当评分规则</em></dt><dd>最优点等于真实概率的损失函数。</dd>
+      </dl>
+    </div>
+  </details>
+
+  <label class="done"><input type="checkbox" data-id="ch7"> 标记本章已掌握</label>
+  <div class="chnav">
+    <a href="#ch6"><small>上一章</small>← 06 · 隐藏层与线性塌缩</a>
+    <a class="next" href="#ch8"><small>下一章</small>08 · 卷积网络 →</a>
+  </div>
+</section>

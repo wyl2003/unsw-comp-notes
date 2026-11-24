@@ -1,0 +1,213 @@
+<section class="chapter" id="ch5">
+  <header class="chapter-head">
+    <div class="kicker">模块 05 · Lecture 2b / 3b</div>
+    <h2>泛化与正则化</h2>
+    <p class="lead">
+      神经网络能在训练集上做到 100% 正确 —— 这恰恰是最容易的部分。难的是<b>在没见过的数据上也对</b>，
+      这个能力叫泛化（generalisation）。这一章讲清楚：为什么会过拟合、怎么用四个旋钮把它压回去、以及怎么判断自己是在过拟合还是欠拟合。
+    </p>
+    <div class="glance">
+      <div><h5>考试怎么考</h5>解释 overfitting / underfitting；写出 L2 正则的损失与梯度；说明 dropout、early stopping 为什么有效；偏差-方差分解。</div>
+      <div><h5>你需要先会</h5>损失函数、梯度下降、训练/验证/测试集的差别。</div>
+    </div>
+    <div class="minitoc">
+      <a href="#s5-1">5.1 两种误差</a><a href="#s5-2">5.2 过拟合长什么样</a>
+      <a href="#s5-3">5.3 偏差与方差</a><a href="#s5-4">5.4 四类正则化</a>
+    </div>
+  </header>
+
+  <div class="lesson" id="s5-1">
+    <h3><span class="num">5.1</span>训练误差会骗人</h3>
+    <p>
+      把模型想成一个学生。训练集是练习册，测试集是考卷。一个把练习册答案<b>背下来</b>的学生，
+      练习册满分，换一道题就崩 —— 这就是过拟合（overfitting）。
+    </p>
+    <table class="grid">
+      <thead><tr><th>现象</th><th>训练误差</th><th>测试误差</th><th>原因</th><th>怎么办</th></tr></thead>
+      <tbody>
+        <tr><td>欠拟合 underfitting</td><td>高</td><td>高</td><td>模型太弱 / 训练不够</td><td>加宽加深、训练更久、减小正则</td></tr>
+        <tr><td>刚好</td><td>低</td><td>低</td><td>容量与数据匹配</td><td>——</td></tr>
+        <tr><td>过拟合 overfitting</td><td>极低</td><td>高</td><td>模型太强 / 数据太少 / 噪声被记住</td><td>加正则、加数据、早停、简化模型</td></tr>
+      </tbody>
+    </table>
+    <div class="callout note">
+      <span class="tag">判断口诀</span>
+      <b>两个都高 → 欠拟合；训练低测试高 → 过拟合。</b>不要只看一个数字。
+    </div>
+  </div>
+
+  <div class="lesson" id="s5-2">
+    <h3><span class="num">5.2</span>亲手制造一次过拟合</h3>
+    <p>下面 14 个点来自同一条正弦曲线加噪声。把多项式阶数 $d$ 调大，看曲线怎么从「太直」变成「太弯」。</p>
+
+    <div class="viz" data-viz="overfit">
+      <div class="viz-head">
+        <span class="lab">LAB 08</span><h5>阶数滑块：欠拟合 → 刚好 → 过拟合</h5>
+        <span class="hint">拖 d，观察测试 MSE</span>
+      </div>
+      <div class="viz-body"></div>
+      <div class="viz-note">
+        $d=1$ 是直线，明显欠拟合；$d=3\sim4$ 最贴近虚线真值；把 $d$ 推到 13，曲线会<b>正好穿过全部 14 个点</b>（训练 MSE $\approx0$），
+        但在点与点之间剧烈摆动，测试 MSE 反而上升。右侧读数会标出「欠拟合 / 刚好 / 过拟合」。
+      </div>
+    </div>
+    <p>
+      这就是「容量」（capacity）的直观含义：模型能表示的函数越复杂，越容易把噪声也当成规律。
+      深度网络的容量极大，所以几乎一定需要正则化。
+    </p>
+  </div>
+
+  <div class="lesson" id="s5-3">
+    <h3><span class="num">5.3</span>偏差-方差：误差从哪来</h3>
+    <div class="mathbox">
+      <div class="cap">期望泛化误差分解</div>
+      $$\mathbb E[(y-\hat f(x))^2]=\underbrace{\text{bias}^2}_{\text{系统性偏差}}+\underbrace{\text{variance}}_{\text{对数据敏感}}+\underbrace{\sigma^2}_{\text{噪声}}$$
+    </div>
+    <table class="sym">
+      <tr><th>bias</th><td>模型族根本表达不了真函数 → 欠拟合。加容量可以降 bias。</td></tr>
+      <tr><th>variance</th><td>换一批训练数据，模型就大变 → 过拟合。加数据/加正则可以降 variance。</td></tr>
+      <tr><th>noise</th><td>数据本身的不可约误差，任何模型都消不掉。</td></tr>
+    </table>
+    <p>这条曲线是 U 形的：容量增加时 bias 下降、variance 上升，总误差先降后升。最优容量在谷底。</p>
+    <div class="enbox">
+      <div class="tag">考场英文</div>
+      <p>“Increasing model capacity reduces bias but increases variance; regularisation trades a small increase in bias for a large reduction in variance.”</p>
+    </div>
+  </div>
+
+  <div class="lesson" id="s5-4">
+    <h3><span class="num">5.4</span>四类正则化，一张表记完</h3>
+    <div class="mathbox">
+      <div class="cap">L2（weight decay / ridge）</div>
+      $$E_{\text{total}}=E+\frac{\lambda}{2}\sum_w w^2\quad\Longrightarrow\quad \frac{\partial E_{\text{total}}}{\partial w}=\frac{\partial E}{\partial w}+\lambda w$$
+      <div class="cap" style="margin-top:10px">L1（lasso）</div>
+      $$E_{\text{total}}=E+\lambda\sum_w|w|\quad\Longrightarrow\quad \text{梯度}=\frac{\partial E}{\partial w}+\lambda\,\mathrm{sign}(w)$$
+    </div>
+    <table class="grid">
+      <thead><tr><th>手段</th><th>怎么做</th><th>为什么有效</th><th>代价</th></tr></thead>
+      <tbody>
+        <tr><td>L2 权重衰减</td><td>损失加 $\lambda\lVert w\rVert^2$（或每步乘 $(1-\eta\lambda)$）</td><td>压小权重 → 输出对输入变化不敏感 → 函数更平滑</td><td>$\lambda$ 太大会欠拟合</td></tr>
+        <tr><td>L1</td><td>损失加 $\lambda\lVert w\rVert_1$</td><td>把不重要的权重压到<b>恰好 0</b>，得到稀疏解</td><td>不可导点要次梯度</td></tr>
+        <tr><td>Dropout</td><td>训练时每个单元以概率 $p$ 被临时丢弃，测试时乘 $(1-p)$ 或用 inverted dropout</td><td>强迫网络不依赖单个单元，等价于集成很多子网络</td><td>训练变慢、推理要一致</td></tr>
+        <tr><td>Early stopping</td><td>验证误差开始上升就停</td><td>在模型开始记噪声之前刹车，隐式限制参数范数</td><td>需要验证集</td></tr>
+        <tr><td>数据增强</td><td>翻转、裁剪、加噪</td><td>扩大有效数据分布，直接降 variance</td><td>增强方式要与任务匹配</td></tr>
+      </tbody>
+    </table>
+    <div class="callout why">
+      <span class="tag">为什么小权重 = 更平滑</span>
+      若某层权重全为 0，该层输出恒定，对输入完全不敏感。权重越小，输出随输入的变化越平缓，
+      噪声引起的小扰动就不会被放大 —— 这正是「泛化」想要的。
+    </div>
+    <div class="callout trap">
+      <span class="tag">Dropout 的三个细节</span>
+      ① 只在<b>训练</b>时开，测试时必须关；② 训练时若未做 inverted scaling，测试时要乘 $(1-p)$；
+      ③ dropout 一般不用在输出层，也不和 batch norm 乱配（方差偏移问题）。
+    </div>
+  </div>
+
+  <hr class="soft">
+  <h3 style="font-size:1.05rem;margin:0 0 4px">例题</h3>
+
+  <article class="card eg io">
+    <h4><span class="chip eg">例题 1</span>L2 正则的梯度</h4>
+    <div class="q"><p>损失 $E=\tfrac12\sum_k(z_k-t_k)^2+\tfrac{\lambda}{2}\sum_{ji}w_{ji}^2$。求 $\partial E/\partial w_{ji}$，并写出更新式。</p></div>
+    <button class="reveal">显示答案 ▼</button>
+    <div class="ans">
+      <p>第一项给出原来的反向传播梯度 $d_jy_i$，第二项给出 $\lambda w_{ji}$。</p>
+      <p>$\dfrac{\partial E}{\partial w_{ji}}=d_jy_i+\lambda w_{ji}$，故 $w_{ji}\leftarrow w_{ji}-\eta(d_jy_i+\lambda w_{ji})=(1-\eta\lambda)w_{ji}-\eta d_jy_i$。</p>
+      <div class="res">每步先把权重乘 $(1-\eta\lambda)$，再走普通梯度</div>
+      <p>这句话就是「weight decay」名字的由来。</p>
+    </div>
+  </article>
+
+  <article class="card eg io">
+    <h4><span class="chip eg">例题 2</span>Dropout 的期望</h4>
+    <div class="q"><p>某单元输出 $h$，训练时以概率 $p$ 置 0。若不做缩放，测试时应该乘多少才能保持期望不变？</p></div>
+    <button class="reveal">显示答案 ▼</button>
+    <div class="ans">
+      <p>训练时该单元输出的期望是 $(1-p)h$，测试时是 $h$。所以要乘 $(1-p)$。</p>
+      <p>现代实现用 inverted dropout：训练时把保留的单元除以 $(1-p)$，测试时什么都不用做 —— 推理更快、更不容易写错。</p>
+      <div class="res">乘 $(1-p)$（或训练时除以 $(1-p)$）</div>
+    </div>
+  </article>
+
+  <h3 style="font-size:1.05rem;margin:26px 0 4px">练习</h3>
+
+  <article class="card easy io">
+    <h4><span class="chip easy">易</span>练习 1 · 判断病状</h4>
+    <div class="q"><p>训练准确率 99.8%，验证准确率 71%，训练损失仍在下降。诊断并给两个处方。</p></div>
+    <button class="reveal">显示答案 ▼</button>
+    <div class="ans">
+      <p>典型过拟合：训练极好、验证差、训练损失还在降（说明还在记噪声）。</p>
+      <p>处方：加 L2 / dropout；数据增强或收集更多数据；早停；减小模型宽度。</p>
+    </div>
+  </article>
+
+  <article class="card mid io">
+    <h4><span class="chip mid">练习 2</span>算一下有效学习率</h4>
+    <div class="q"><p>$\eta=0.1$，$\lambda=0.02$。每步权重先乘多少？若 $\lambda$ 增到 0.5 会怎样？</p></div>
+    <button class="reveal">显示答案 ▼</button>
+    <div class="ans">
+      <p>$1-\eta\lambda=1-0.002=0.998$，即每步衰减 0.2%。</p>
+      <p>$\lambda=0.5$ 时 $1-0.05=0.95$，每步衰减 5% —— 权重会被迅速压向 0，模型欠拟合。</p>
+      <div class="res">0.998；过大则欠拟合</div>
+    </div>
+  </article>
+
+  <article class="card hard io">
+    <h4><span class="chip hard">练习 3</span>为什么 L1 稀疏而 L2 不稀疏</h4>
+    <div class="q"><p>从几何角度解释：为什么 L1 正则容易把某些权重压到恰好 0，而 L2 只是让它们变小？</p></div>
+    <button class="reveal">显示答案 ▼</button>
+    <div class="ans">
+      <p>把损失等高线与约束区域画在一起：L1 的约束区域是菱形（有尖角），L2 是圆（处处光滑）。</p>
+      <p>等高线最容易先碰到菱形的<b>顶点</b>，而顶点坐标有一个分量为 0，所以解稀疏；圆的切点一般不在坐标轴上，所以权重只是变小不为 0。</p>
+      <div class="res">尖角 → 稀疏；光滑 → 缩小</div>
+    </div>
+  </article>
+
+  <h3 style="font-size:1.05rem;margin:26px 0 4px">变种题</h3>
+
+  <article class="card var io">
+    <h4><span class="chip var">变种 1</span>正则化与训练集大小</h4>
+    <div class="q"><p>数据从 1 万涨到 100 万，最优 $\lambda$ 应该变大还是变小？为什么？</p></div>
+    <button class="reveal">显示答案 ▼</button>
+    <div class="ans">
+      <p>应该变小。数据越多，经验风险越接近真实风险，模型靠数据本身就能约束住，不需要强先验。</p>
+      <p>经验上 $\lambda\propto 1/n$ 左右。数据少时才需要「用先验补信息」。</p>
+    </div>
+  </article>
+
+  <article class="card var io">
+    <h4><span class="chip var">变种 2</span>早停为什么等价于 L2</h4>
+    <div class="q"><p>用一句话解释：为什么「训练到验证误差开始上升就停」能起到正则化作用？</p></div>
+    <button class="reveal">显示答案 ▼</button>
+    <div class="ans">
+      <p>梯度下降从较小的初始权重出发，训练越久权重范数越大；早停相当于把「权重范数」限制在一个较小的预算内，
+      与 L2 约束参数范数的效果同源（对二次损失有精确对应）。</p>
+    </div>
+  </article>
+
+  <details class="gloss">
+    <summary>本章术语表</summary>
+    <div class="body">
+      <dl>
+        <dt>generalisation<em>泛化</em></dt><dd>在未见数据上的表现。</dd>
+        <dt>overfitting / underfitting<em>过拟合 / 欠拟合</em></dt><dd>记住噪声 / 连规律都没学到。</dd>
+        <dt>capacity<em>容量</em></dt><dd>模型能表示的函数复杂度。</dd>
+        <dt>bias-variance trade-off<em>偏差-方差权衡</em></dt><dd>容量增大降 bias 升 variance。</dd>
+        <dt>weight decay<em>权重衰减</em></dt><dd>L2 正则，每步把权重乘 $(1-\eta\lambda)$。</dd>
+        <dt>sparsity<em>稀疏性</em></dt><dd>L1 会把部分权重压成 0。</dd>
+        <dt>dropout<em>随机失活</em></dt><dd>训练时随机丢弃单元，防共适应。</dd>
+        <dt>early stopping<em>早停</em></dt><dd>验证误差回升即停止。</dd>
+        <dt>data augmentation<em>数据增强</em></dt><dd>对训练样本做保标签变换。</dd>
+        <dt>validation set<em>验证集</em></dt><dd>调超参用的、不参与训练的数据。</dd>
+      </dl>
+    </div>
+  </details>
+
+  <label class="done"><input type="checkbox" data-id="ch5"> 标记本章已掌握</label>
+  <div class="chnav">
+    <a href="#ch4"><small>上一章</small>← 04 · 熵与 KL</a>
+    <a class="next" href="#ch6"><small>下一章</small>06 · 隐藏层与线性塌缩 →</a>
+  </div>
+</section>

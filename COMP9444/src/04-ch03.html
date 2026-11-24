@@ -1,0 +1,321 @@
+<section class="chapter" id="ch3">
+  <header class="chapter-head">
+    <div class="kicker">模块 03 · Lecture 1d / 3a · Tutorial 2</div>
+    <h2>反向传播：网络到底怎么学</h2>
+    <p class="lead">
+      这是整门课的<b>计算核心</b>。一句话：损失对某个权重的导数 = 「这个权重下游的误差」×「它上游的输入」。
+      考试几乎一定有一道「手算一次前向 + 反向 + 更新」的大题。掌握三件事就不会错：
+      <b>链式法则、每个节点的局部导数、更新要减不要加。</b>
+    </p>
+    <div class="glance">
+      <div><h5>考试怎么考</h5>给网络结构、权重、输入、目标、学习率，求所有偏导并写出更新后的权重；或只问某个权重的梯度。</div>
+      <div><h5>你需要先会</h5>链式法则、偏导、sigmoid/tanh/ReLU 的导数（上一章那张表）。</div>
+    </div>
+    <div class="minitoc">
+      <a href="#s3-1">3.1 链式法则</a><a href="#s3-2">3.2 两个公式</a>
+      <a href="#s3-3">3.3 局部导数</a><a href="#s3-4">3.4 梯度下降与调参</a>
+      <a href="#s3-5">3.5 完整手算</a>
+    </div>
+  </header>
+
+  <div class="lesson" id="s3-1">
+    <h3><span class="num">3.1</span>问题：输出错了，该怪哪个权重？</h3>
+    <p>
+      一个网络有几万个权重，输出错了，你想知道「把 $w_{11}$ 调大一点点，损失会变大还是变小、变多少」。
+      这个量就是偏导 $\partial E/\partial w_{11}$。有了它，更新就只是往反方向走一小步：
+    </p>
+    <div class="mathbox">
+      <div class="cap">梯度下降（gradient descent）</div>
+      $$w \leftarrow w-\eta\frac{\partial E}{\partial w}$$
+    </div>
+    <p>
+      问题是：$w_{11}$ 藏在网络深处，中间隔了好几层函数。直接求导要展开成巨大的表达式。
+      <b>链式法则</b>（chain rule）告诉我们：可以一段一段地乘起来，从输出往回算 —— 这就是反向传播。
+    </p>
+    <div class="mathbox eq">
+      $$\frac{\partial E}{\partial w}=\frac{\partial E}{\partial y}\cdot\frac{\partial y}{\partial s}\cdot\frac{\partial s}{\partial w}$$
+    </div>
+    <p>三段各管一件事：<b>下游有多错</b>（$\partial E/\partial y$）、<b>激活函数把误差放大还是缩小</b>（$f'(s)$）、<b>输入有多大</b>（$\partial s/\partial w=x$）。</p>
+    <div class="callout why">
+      <span class="tag">为什么叫「反向」</span>
+      因为 $\partial E/\partial y$ 依赖下一层的误差，而下一层的误差又依赖再下一层……所以必须<b>从输出层开始，倒着算</b>。
+      倒着算还有个好处：同一条路径上的中间结果可以复用，一次反向传播就能拿到<b>所有</b>权重的梯度（复杂度与前向同阶）。
+    </div>
+  </div>
+
+  <div class="lesson" id="s3-2">
+    <h3><span class="num">3.2</span>两个公式，覆盖所有手算题</h3>
+    <p>把「误差信号」定义为损失对<b>预激活</b>的导数，记作 $d_j$：</p>
+    <div class="mathbox">
+      <div class="cap">定义</div>
+      $$d_j=\frac{\partial E}{\partial s_j}$$
+      <div class="cap" style="margin-top:10px">反向传播（对隐藏层 $j$）</div>
+      $$d_j=f'(s_j)\sum_{k} d_k\,w_{kj}$$
+      <div class="cap" style="margin-top:10px">权重与偏置的梯度</div>
+      $$\frac{\partial E}{\partial w_{ji}}=d_j\,y_i,\qquad \frac{\partial E}{\partial b_j}=d_j$$
+    </div>
+    <table class="sym">
+      <caption>逐项解释</caption>
+      <tr><th>$f'(s_j)$</th><td>本单元激活函数的导数，用<b>预激活 $s_j$</b> 算（ReLU 特别容易在这里错）。</td></tr>
+      <tr><th>$\sum_k d_k w_{kj}$</th><td>所有下游单元把误差「按连接强度加权」传回来。这就是为什么叫 back-<b>propagation</b>。</td></tr>
+      <tr><th>$y_i$</th><td>本单元的输入（上一层的输出）。梯度 = 误差 × 输入。</td></tr>
+    </table>
+    <p>输出层是特例，$d_k$ 直接由损失函数给出：</p>
+    <table class="grid">
+      <thead><tr><th>输出层配置</th><th>$d_k$</th><th>记忆</th></tr></thead>
+      <tbody>
+        <tr><td>线性输出 + 平方误差</td><td>$z_k-t_k$</td><td>「预测减目标」</td></tr>
+        <tr><td>sigmoid + 二元交叉熵</td><td>$y_k-t_k$</td><td>sigmoid 的导数被约掉了</td></tr>
+        <tr><td>softmax + 交叉熵</td><td>$y_k-t_k$</td><td>同上，第 7 章证明</td></tr>
+      </tbody>
+    </table>
+    <div class="callout note">
+      <span class="tag">这三个「正好是预测减目标」不是巧合</span>
+      它们是<b>故意配对</b>的：损失函数选得对，输出层的梯度就最简、最不容易饱和。这就是第 7 章「为什么分类要用交叉熵」的答案。
+    </div>
+  </div>
+
+  <div class="lesson" id="s3-3">
+    <h3><span class="num">3.3</span>局部导数：只有三个要背</h3>
+    <table class="grid">
+      <thead><tr><th>激活</th><th>$f'(s)$ 用 $s$ 表示</th><th>用输出 $y$ 表示</th><th>典型错误</th></tr></thead>
+      <tbody>
+        <tr><td>sigmoid</td><td>$\sigma(s)(1-\sigma(s))$</td><td>$y(1-y)$</td><td>忘记最大值只有 0.25</td></tr>
+        <tr><td>tanh</td><td>$1-\tanh^2(s)$</td><td>$1-y^2$</td><td>写成 $y(1-y)$</td></tr>
+        <tr><td>ReLU</td><td>$1$ if $s\gt 0$ else $0$</td><td>不能用 $y$ 判断</td><td>用 $y\gt 0$ 判断（$y=0$ 既可能是负数也可能正好是 0）</td></tr>
+        <tr><td>线性</td><td>$1$</td><td>$1$</td><td>——</td></tr>
+      </tbody>
+    </table>
+    <div class="callout trap">
+      <span class="tag">dead ReLU</span>
+      如果某个隐藏单元的 $s\lt 0$，它的导数是 0，于是 $d_j=0$，于是与它相连的<b>所有</b>权重梯度都是 0 ——
+      这个单元这一步完全不学。若它长期为负，就永远学不回来，称为 dead ReLU。下一节的例题里就有这个现象。
+    </div>
+  </div>
+
+  <div class="lesson" id="s3-4">
+    <h3><span class="num">3.4</span>梯度下降：走多快、往哪走、怎么不走歪</h3>
+    <p>有了梯度，最朴素的更新就是「往负梯度方向走一步」。步长由学习率 $\eta$ 控制，这一件事就能决定训练成败。</p>
+
+    <div class="viz" data-viz="gd">
+      <div class="viz-head">
+        <span class="lab">LAB 04</span><h5>学习率大了会发生什么</h5>
+        <span class="hint">拖 η 再按自动</span>
+      </div>
+      <div class="viz-body"></div>
+      <div class="viz-note">
+        把 $\eta$ 拖到 2 以上：点会在谷底两侧来回跳，甚至越跳越远（发散）。$\eta$ 太小则要很多步才到。
+        <b>结论：$\eta$ 是「稳定」与「速度」的权衡。</b>
+      </div>
+    </div>
+
+    <p>实际训练里，人们用几个技巧让「走」更稳。考试常让你写出更新式并解释作用：</p>
+    <div class="mathbox">
+      <div class="cap">动量（momentum）</div>
+      $$v \leftarrow \beta v-\eta\frac{\partial E}{\partial w},\qquad w\leftarrow w+v$$
+      <div class="cap" style="margin-top:10px">权重衰减 / L2 正则</div>
+      $$E_{\text{total}}=E+\frac{\lambda}{2}\lVert w\rVert^2\quad\Longrightarrow\quad w\leftarrow w-\eta\left(\frac{\partial E}{\partial w}+\lambda w\right)$$
+    </div>
+    <table class="grid">
+      <thead><tr><th>技巧</th><th>解决什么</th><th>一句话</th></tr></thead>
+      <tbody>
+        <tr><td>动量</td><td>震荡、峡谷地形</td><td>累积历史梯度，像小球滚下山有惯性</td></tr>
+        <tr><td>权重衰减</td><td>权重过大、过拟合</td><td>每步都往 0 拉一点，等价于 L2 正则</td></tr>
+        <tr><td>小批量（mini-batch）</td><td>计算量、噪声</td><td>用一小批样本估计梯度，噪声反而帮助逃离坏点</td></tr>
+        <tr><td>学习率衰减</td><td>后期震荡</td><td>先大后小，靠近最优解时细调</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="lesson" id="s3-5">
+    <h3><span class="num">3.5</span>完整手算一次（Tutorial 2 Q2 原题）</h3>
+    <p>结构 2-2-2：隐藏层 ReLU，输出层线性，损失为平方误差。点击 LAB 右下角按钮一步步走，每一步右侧都会出现对应读数。</p>
+    <div class="viz" data-viz="backprop">
+      <div class="viz-head">
+        <span class="lab">LAB 05</span><h5>前向 → 损失 → 反向 → 更新，逐步高亮</h5>
+        <span class="hint">播放 / 单步</span>
+      </div>
+      <div class="viz-body"></div>
+      <div class="viz-note">
+        注意第 7 步：$y_1$ 被 ReLU 掐成 0，于是 $du_1=0$，与它相连的 $w_{11},w_{12},b_1$ 在第 8 步<b>完全不动</b>。
+        这不是算错，是 dead ReLU 的真实后果，也是考官爱考的点。
+      </div>
+    </div>
+
+    <div class="mathbox">
+      <div class="cap">给定</div>
+      $$w_{11}=0.5,\;w_{12}=-0.7,\;w_{21}=0.4,\;w_{22}=-0.6,\;b_1=-0.9,\;b_2=0.7$$
+      $$v_{11}=0.3,\;v_{12}=-0.6,\;v_{21}=-0.4,\;v_{22}=-0.8,\;c_1=-0.3,\;c_2=0.2$$
+      $$x=(0.5,-0.4),\quad t=(1.0,\,0.0),\quad \eta=0.5$$
+    </div>
+    <table class="grid">
+      <thead><tr><th>量</th><th class="num">值</th><th>怎么来的</th></tr></thead>
+      <tbody>
+        <tr><td>$u_1,u_2$</td><td class="num">−0.37, 1.14</td><td>$0.5(0.5)-0.7(-0.4)-0.9$；$0.4(0.5)-0.6(-0.4)+0.7$</td></tr>
+        <tr><td>$y_1,y_2$</td><td class="num">0, 1.14</td><td>ReLU：负数归零</td></tr>
+        <tr><td>$z_1,z_2$</td><td class="num">−0.984, −0.712</td><td>$0.3(0)-0.6(1.14)-0.3$；$-0.4(0)-0.8(1.14)+0.2$</td></tr>
+        <tr><td>$E$</td><td class="num">2.2216</td><td>$\tfrac12[(z_1-1)^2+z_2^2]$</td></tr>
+        <tr class="hi"><td>$dz_1,dz_2$</td><td class="num">−1.984, −0.712</td><td>$z-t$</td></tr>
+        <tr><td>$dy_1,dy_2$</td><td class="num">−0.3104, 1.76</td><td>$dz_1v_{11}+dz_2v_{21}$；$dz_1v_{12}+dz_2v_{22}$</td></tr>
+        <tr class="hi"><td>$du_1,du_2$</td><td class="num">0, 1.76</td><td>$dy_1\cdot\text{ReLU}'(u_1)=0$；$dy_2\cdot1$</td></tr>
+      </tbody>
+    </table>
+    <p>更新（$\eta=0.5$，注意所有含 $y_1$ 或 $du_1$ 的项都不动）：</p>
+    <div class="mathbox eq">
+      $$w_{21}\leftarrow0.4-\tfrac12(1.76)(0.5)=-0.04,\qquad
+        w_{22}\leftarrow-0.6-\tfrac12(1.76)(-0.4)=-0.248$$
+      $$b_2\leftarrow0.7-\tfrac12(1.76)=-0.18,\qquad
+        v_{12}\leftarrow-0.6-\tfrac12(-1.984)(1.14)=0.5309$$
+      $$c_1\leftarrow-0.3-\tfrac12(-1.984)=0.692,\qquad
+        c_2\leftarrow0.2-\tfrac12(-0.712)=0.556$$
+    </div>
+    <div class="callout note">
+      <span class="tag">检查你的答案</span>
+      更新后 $E$ 应该变小。可以快速估算：$z_1$ 从 $-0.984$ 向 $1$ 移动了约 $0.15$，$z_2$ 从 $-0.712$ 向 $0$ 移动了约 $0.09$，
+      所以损失一定下降。若你的更新让 $E$ 变大，八成是符号错了（加了梯度而不是减）。
+    </div>
+  </div>
+
+  <hr class="soft">
+  <h3 style="font-size:1.05rem;margin:0 0 4px">例题（课内原题）</h3>
+
+  <article class="card eg io">
+    <h4><span class="chip eg">例题 1</span>最简单的梯度下降（Tutorial 2 Q1）</h4>
+    <div class="q">
+      <p>$f(x)=wx$，要求 $f(1)=1$。损失 $E=\tfrac12(wx-t)^2$，$\eta=0.5$，$w=0$。完成前两个 epoch 的表格。</p>
+      <span class="en">Perform the first two epochs of gradient descent by hand.</span>
+    </div>
+    <button class="reveal">显示答案 ▼</button>
+    <div class="ans">
+      <p>$x=1,t=1$，所以 $E=\tfrac12(w-1)^2$，$\dfrac{\partial E}{\partial w}=w-1$。</p>
+      <table class="grid">
+        <thead><tr><th>epoch</th><th class="num">w（更新前）</th><th class="num">E</th><th class="num">∂E/∂w</th><th class="num">w（更新后）</th></tr></thead>
+        <tbody>
+          <tr><td>0</td><td class="num">0</td><td class="num">0.5</td><td class="num">−1</td><td class="num">0.5</td></tr>
+          <tr><td>1</td><td class="num">0.5</td><td class="num">0.125</td><td class="num">−0.5</td><td class="num">0.75</td></tr>
+        </tbody>
+      </table>
+      <p>每步把「离 1 的距离」缩小一半：$w\leftarrow w+0.5(1-w)$。所以 $w$ 依次是 $0,0.5,0.75,0.875,\dots$，极限为 1。</p>
+      <div class="res">$w_1=0.5,\; w_2=0.75$</div>
+    </div>
+  </article>
+
+  <article class="card eg io">
+    <h4><span class="chip eg">例题 2</span>两层网络的手算（Tutorial 2 Q2，必考题型）</h4>
+    <div class="q">
+      <p>用 3.5 节的网络，求所有偏导与更新后的权重。</p>
+    </div>
+    <button class="reveal">显示答案 ▼</button>
+    <div class="ans">
+      <p>完整数值见 3.5 节的表。答题顺序建议：</p>
+      <ol>
+        <li>写符号约定（$w_{ji}$、$d_j$、$y_j$）。</li>
+        <li>前向：$u\to y\to z\to E$，每行一个量。</li>
+        <li>反向：$dz\to dy\to du$，并明确写出「ReLU 在 $u_1\lt 0$ 处导数为 0」。</li>
+        <li>更新：$w\leftarrow w-\eta\,du\,y_{\text{in}}$，逐项列出。</li>
+        <li>补一句结论：损失从 2.2216 下降。</li>
+      </ol>
+      <div class="enbox">
+        <div class="tag">英文写法</div>
+        <p>“Since $u_1\lt 0$, the ReLU derivative is zero and hence $du_1=0$; consequently $w_{11}$, $w_{12}$ and $b_1$ are unchanged in this update.”</p>
+      </div>
+    </div>
+  </article>
+
+  <h3 style="font-size:1.05rem;margin:26px 0 4px">练习</h3>
+
+  <article class="card easy io">
+    <h4><span class="chip easy">易</span>练习 1 · 单输出单元的梯度</h4>
+    <div class="q"><p>$z=0.8$，$t=1$，$E=\tfrac12(z-t)^2$，输入 $y=2$。求 $dz$ 与 $\partial E/\partial v$。</p></div>
+    <button class="reveal">显示答案 ▼</button>
+    <div class="ans">
+      <p>$dz=z-t=-0.2$；$\partial E/\partial v=dz\cdot y=-0.4$。</p>
+      <p>更新（$\eta=0.5$）：$v\leftarrow v+0.2$，输出会朝 1 靠近。</p>
+    </div>
+  </article>
+
+  <article class="card mid io">
+    <h4><span class="chip mid">练习 2</span>换激活函数重算</h4>
+    <div class="q">
+      <p>把例题 2 的隐藏层从 ReLU 换成 tanh，只重算 $y_1,y_2,dy_1,du_1,du_2$（4 位小数）。</p>
+    </div>
+    <button class="reveal">显示答案 ▼</button>
+    <div class="ans">
+      <p>$y_1=\tanh(-0.37)=-0.3540$，$y_2=\tanh(1.14)=0.8144$。</p>
+      <p>$z_1=0.3(-0.3540)-0.6(0.8144)-0.3=-0.8948$，$z_2=-0.4(-0.3540)-0.8(0.8144)+0.2=-0.3099$。</p>
+      <p>$dz=(-1.8948,\,-0.3099)$；$dy_1=dz_1(0.3)+dz_2(-0.4)=-0.4445$；$dy_2=dz_1(-0.6)+dz_2(-0.8)=1.3849$。</p>
+      <p>$du_1=dy_1(1-y_1^2)=-0.3888$；$du_2=dy_2(1-y_2^2)=0.4663$。</p>
+      <div class="res">$du=(-0.3888,\;0.4663)$</div>
+      <p>对比 ReLU 版的 $du_1=0$：换成 tanh 后第一个单元「活过来了」，也开始学习。这就是激活函数选择的实际影响。</p>
+    </div>
+  </article>
+
+  <article class="card hard io">
+    <h4><span class="chip hard">练习 3</span>两个样本的批梯度</h4>
+    <div class="q">
+      <p>同一个 ReLU 网络，样本 2 的 $u_1=0.6,\;y_1=0.6,\;z_1=0.9,\;t_1=0$（只看输出 1）。求 $w_{11}$ 在两个样本上的总梯度，并说明 mini-batch 与在线更新的差别。</p>
+    </div>
+    <button class="reveal">显示答案 ▼</button>
+    <div class="ans">
+      <p>样本 1：$du_1=0$（dead ReLU），贡献 $0$。</p>
+      <p>样本 2：$dz_1=0.9-0=0.9$，$dy_1=dz_1v_{11}=0.27$，$du_1=0.27$（$u_1\gt 0$ 导数为 1），$\partial E/\partial w_{11}=du_1x_1=0.27(0.5)=0.135$。</p>
+      <div class="res">总梯度 $0.135$（若取平均则 $0.0675$）</div>
+      <p>差别：在线（SGD）每来一个样本就更新一次，噪声大但反应快；mini-batch 把梯度求和/平均后再更新一次，方向更准、可用矩阵运算加速。
+      批大小是「方差」与「速度」的权衡。</p>
+    </div>
+  </article>
+
+  <h3 style="font-size:1.05rem;margin:26px 0 4px">变种题</h3>
+
+  <article class="card var io">
+    <h4><span class="chip var">变种 1</span>交叉熵 + sigmoid 输出</h4>
+    <div class="q">
+      <p>二分类，输出 sigmoid，损失 $E=-[t\ln y+(1-t)\ln(1-y)]$。证明 $dz=y-t$，并解释为什么这比「sigmoid + 平方误差」好。</p>
+    </div>
+    <button class="reveal">显示答案 ▼</button>
+    <div class="ans">
+      <p>$\dfrac{\partial E}{\partial y}=-\dfrac{t}{y}+\dfrac{1-t}{1-y}$，又 $y'=y(1-y)$，故</p>
+      <p>$dz=\dfrac{\partial E}{\partial y}y(1-y)=-[t(1-y)-(1-t)y]=y-t$。</p>
+      <div class="res">$dz=y-t$</div>
+      <p>平方误差配 sigmoid 时，$dz=(y-t)y(1-y)$：当输出严重错误（$y$ 接近 0 或 1）时 $y(1-y)\to0$，梯度反而消失。
+      交叉熵把它约掉了，错误越大梯度越大，学得更快。</p>
+    </div>
+  </article>
+
+  <article class="card var io">
+    <h4><span class="chip var">变种 2</span>动量 + 权重衰减</h4>
+    <div class="q">
+      <p>写出带动量与 L2 权重衰减的更新式，并说明两者各自解决什么问题。</p>
+    </div>
+    <button class="reveal">显示答案 ▼</button>
+    <div class="ans">
+      <p>$v\leftarrow\beta v-\eta\left(\dfrac{\partial E}{\partial w}+\lambda w\right)$，$w\leftarrow w+v$。</p>
+      <p>动量（$\beta\approx0.9$）累积历史方向，抑制来回震荡、加速沿峡谷前进；权重衰减（$\lambda w$）每步把权重往 0 拉，
+      限制模型复杂度、缓解过拟合。</p>
+      <p>注意：两者都会改变「有效学习率」，$\lambda$ 太大模型会欠拟合。</p>
+    </div>
+  </article>
+
+  <details class="gloss">
+    <summary>本章术语表</summary>
+    <div class="body">
+      <dl>
+        <dt>chain rule<em>链式法则</em></dt><dd>复合函数求导 = 各段导数相乘。</dd>
+        <dt>error signal $d_j$<em>误差信号</em></dt><dd>$\partial E/\partial s_j$，反向传播的核心量。</dd>
+        <dt>gradient descent<em>梯度下降</em></dt><dd>$w\leftarrow w-\eta\nabla E$。</dd>
+        <dt>learning rate<em>学习率</em></dt><dd>步长；过大发散，过小太慢。</dd>
+        <dt>momentum<em>动量</em></dt><dd>累积历史梯度，抑制震荡。</dd>
+        <dt>weight decay / L2<em>权重衰减</em></dt><dd>在损失里加 $\lambda\lVert w\rVert^2$，压小权重。</dd>
+        <dt>dead ReLU<em>死神经元</em></dt><dd>$s\lt 0$ 使导数为 0，该单元永久不更新。</dd>
+        <dt>vanishing / exploding gradient<em>梯度消失 / 爆炸</em></dt><dd>连乘小于 1 或大于 1 的因子导致梯度趋 0 或爆掉。</dd>
+        <dt>mini-batch<em>小批量</em></dt><dd>用一部分样本估计梯度。</dd>
+      </dl>
+    </div>
+  </details>
+
+  <label class="done"><input type="checkbox" data-id="ch3"> 标记本章已掌握</label>
+  <div class="chnav">
+    <a href="#ch2"><small>上一章</small>← 02 · 感知机</a>
+    <a class="next" href="#ch4"><small>下一章</small>04 · 概率、熵与 KL →</a>
+  </div>
+</section>

@@ -1,0 +1,300 @@
+<section class="chapter" id="ch11">
+  <header class="chapter-head">
+    <div class="kicker">模块 11 · Lecture 9–10 · Tutorial 9 Q2–Q3</div>
+    <h2>序列建模：RNN / LSTM / 注意力</h2>
+    <p class="lead">
+      图像是一张静态的网格，语言是一串有先后顺序的符号。这一章解决一个问题：<b>怎样让网络记住前面看过的东西</b>。
+      RNN 把隐藏状态沿时间传递；它会梯度消失，于是有了 LSTM 的「传送带」；当序列太长、需要直接跳回去看某个词时，就有了注意力机制。
+      最后用课内两道 Reber 语法题检验你是否真的理解「记忆」。
+    </p>
+    <div class="glance">
+      <div><h5>考试怎么考</h5>写 RNN 更新式；解释 BPTT 与梯度消失；画/解释 LSTM 三个门；比较 LSTM 与 SRN 的实验结果；解释注意力的作用。</div>
+      <div><h5>你需要先会</h5>tanh、sigmoid、链式法则的连乘、softmax。</div>
+    </div>
+    <div class="minitoc">
+      <a href="#s11-1">11.1 RNN</a><a href="#s11-2">11.2 梯度消失</a>
+      <a href="#s11-3">11.3 LSTM 与 GRU</a><a href="#s11-4">11.4 注意力</a>
+      <a href="#s11-5">11.5 Reber 语法</a>
+    </div>
+  </header>
+
+  <div class="lesson" id="s11-1">
+    <h3><span class="num">11.1</span>RNN：把「记忆」写进隐藏状态</h3>
+    <p>
+      普通前馈网络每个输入独立处理。但读句子时，「bank」是河岸还是银行，取决于前面的词。
+      RNN 的做法是：除了当前输入，还把<b>上一时刻的隐藏状态</b>一起喂进来。
+    </p>
+    <div class="mathbox">
+      <div class="cap">简单循环网络（SRN / Elman network）</div>
+      $$h_t=\tanh\!\left(W x_t+U h_{t-1}+b\right),\qquad y_t=\mathrm{softmax}\!\left(V h_t+c\right)$$
+    </div>
+    <table class="sym">
+      <tr><th>$h_t$</th><td>时刻 $t$ 的隐藏状态，是「到目前为止读过的所有内容」的压缩摘要。</td></tr>
+      <tr><th>$W$</th><td>输入到隐藏的权重（所有时刻<b>共享</b>）。</td></tr>
+      <tr><th>$U$</th><td>隐藏到隐藏的权重，负责传递记忆。</td></tr>
+      <tr><th>$h_0$</th><td>初始状态，通常是 0 或一个可学习向量。</td></tr>
+    </table>
+    <div class="callout why">
+      <span class="tag">为什么权重共享</span>
+      同一套 $W,U$ 在每个时间步复用，参数不随序列长度增长；也正因为共享，网络才能处理任意长度的输入。
+      把 RNN 按时间「展开」（unroll），它就是一个很深的、每层共享权重的前馈网络 —— 这句话是理解 BPTT 的关键。
+    </div>
+
+    <div class="viz" data-viz="rnn">
+      <div class="viz-head">
+        <span class="lab">LAB 14</span><h5>沿时间展开，看 h 一步步传下去</h5>
+        <span class="hint">可切到 LSTM 门控</span>
+      </div>
+      <div class="viz-body"></div>
+      <div class="viz-note">
+        RNN 模式下箭头表示 $h_{t-1}\to h_t$ 的传递；切到 LSTM 会换成「遗忘门 × 旧记忆 + 输入门 × 新候选」。
+        右侧读数显示每一步的数值，注意 $h$ 每步都会被 tanh 压一次 —— 这就是信息衰减的来源。
+      </div>
+    </div>
+  </div>
+
+  <div class="lesson" id="s11-2">
+    <h3><span class="num">11.2</span>BPTT 与梯度消失</h3>
+    <p>训练时把展开的网络当普通前馈网络反向传播，叫 <b>BPTT</b>（backpropagation through time）。问题出在连乘：</p>
+    <div class="mathbox eq">
+      $$\frac{\partial h_T}{\partial h_t}=\prod_{k=t+1}^{T}\frac{\partial h_k}{\partial h_{k-1}}
+        =\prod_{k}\mathrm{diag}\!\left(1-h_k^2\right)U$$
+    </div>
+    <p>
+      每个因子都含 $1-h_k^2\le1$ 和 $U$。若 $U$ 的特征值小于 1，乘积随步数<b>指数衰减</b>（梯度消失）；
+      大于 1 则指数爆炸。于是网络记不住很久以前的信息 —— 这就是「长期依赖」（long-range dependency）学不会的根本原因。
+    </p>
+    <div class="callout trap">
+      <span class="tag">注意区分两种「消失」</span>
+      前馈网络的梯度消失是<b>层</b>深；RNN 的是<b>时间</b>长。两者机制相同（连乘小于 1 的因子），
+      但 RNN 的因子数等于序列长度，可能上千。
+    </div>
+    <p>缓解手段：梯度裁剪（爆炸）、门控结构（LSTM/GRU）、残差连接、注意力（直接建立远距离连接）。</p>
+  </div>
+
+  <div class="lesson" id="s11-3">
+    <h3><span class="num">11.3</span>LSTM：给记忆一条「传送带」</h3>
+    <p>
+      LSTM 在隐藏状态之外多了一条<b>细胞状态</b>（cell state）$c_t$。它不是每步都被压缩，而是被「门」控制着加减：
+    </p>
+    <div class="mathbox">
+      <div class="cap">四个式子（顺序固定）</div>
+      $$f_t=\sigma(W_f x_t+U_f h_{t-1}+b_f)\qquad\text{遗忘门 forget}$$
+      $$i_t=\sigma(W_i x_t+U_i h_{t-1}+b_i)\qquad\text{输入门 input}$$
+      $$\tilde c_t=\tanh(W_c x_t+U_c h_{t-1}+b_c)\qquad\text{候选记忆}$$
+      $$c_t=f_t\odot c_{t-1}+i_t\odot\tilde c_t,\qquad h_t=o_t\odot\tanh(c_t)$$
+      $$o_t=\sigma(W_o x_t+U_o h_{t-1}+b_o)\qquad\text{输出门 output}$$
+    </div>
+    <table class="sym">
+      <tr><th>$f_t\approx1$</th><td>完整保留旧记忆 —— 这就是「传送带」：信息可以跨很多步不变。</td></tr>
+      <tr><th>$i_t\approx0$</th><td>不写入新内容，记忆被保护起来。</td></tr>
+      <tr><th>$o_t$</th><td>决定这一刻要不要把记忆暴露给输出/下一层。</td></tr>
+      <tr><th>$\odot$</th><td>逐元素相乘（Hadamard product）。</td></tr>
+    </table>
+    <div class="callout why">
+      <span class="tag">为什么这样就缓解梯度消失</span>
+      $c_t=f_tc_{t-1}+\cdots$ 对 $c_{t-1}$ 的偏导就是 $f_t$。当 $f_t\approx1$ 时，梯度沿时间<b>原样传回</b>，
+      不再被 tanh 的导数反复压小。这就是 LSTM 能记住「第二个符号是 T 还是 P」的机制。
+    </div>
+    <p><b>GRU</b> 是简化版：把遗忘门和输入门合并成「更新门」$z_t$，并去掉单独的细胞状态：</p>
+    <div class="mathbox eq">
+      $$z_t=\sigma(\cdot),\quad r_t=\sigma(\cdot),\quad
+        h_t=(1-z_t)\odot h_{t-1}+z_t\odot\tanh\!\left(Wx_t+U(r_t\odot h_{t-1})\right)$$
+    </div>
+  </div>
+
+  <div class="lesson" id="s11-4">
+    <h3><span class="num">11.4</span>注意力：不用记住全部，需要时回去查</h3>
+    <p>
+      Seq2Seq（编码器—解码器）把整个输入压成一个向量，长句子必然丢信息。注意力让解码器每一步都能<b>直接看</b>输入的每个位置，
+      并按相关度加权：
+    </p>
+    <div class="mathbox">
+      <div class="cap">缩放点积注意力</div>
+      $$\mathrm{Attention}(Q,K,V)=\mathrm{softmax}\!\left(\frac{QK^{\mathsf T}}{\sqrt{d_k}}\right)V$$
+    </div>
+    <table class="sym">
+      <tr><th>$Q$ query</th><td>「我现在想找什么」—— 解码器当前状态。</td></tr>
+      <tr><th>$K$ key</th><td>「我这儿有什么」—— 每个输入位置的索引。</td></tr>
+      <tr><th>$V$ value</th><td>「如果被选中，我提供什么内容」。</td></tr>
+      <tr><th>$\sqrt{d_k}$</th><td>防止点积随维度变大而进入 softmax 饱和区。</td></tr>
+    </table>
+    <p>
+      注意力权重是一个概率分布，可以直接可视化（第 9 章的词向量在这里变成「哪些词互相关注」）。
+      它把任意两个位置之间的路径长度从 $O(T)$ 降到 $O(1)$，所以梯度不再需要穿过很长的时间链 —— 这是 Transformer 的基础。
+    </p>
+    <div class="callout exam">
+      <span class="tag">一句话答案</span>
+      “Attention computes a softmax-weighted average of values, where the weights measure the compatibility between a query and each key,
+      giving the model direct access to any position instead of forcing information through a recurrent bottleneck.”
+    </div>
+  </div>
+
+  <div class="lesson" id="s11-5">
+    <h3><span class="num">11.5</span>Reber 语法：用有限状态机考「记忆」</h3>
+    <p>
+      Reber 语法由一个 6 状态的有限状态机定义，每个字符串以 B 开头、E 结尾；有两条出边的状态各以 0.5 概率选择。
+      任务是根据已读到的前缀<b>预测下一个符号</b>。
+    </p>
+    <p>SRN 只有 2 个隐藏单元，所以每个时刻的隐藏状态是平面上的一个点。下图是训练后读很多测试串得到的点，按 FSM 状态着色：</p>
+    <figure style="margin:16px 0;text-align:center">
+      <img src="img/wk9_reber_srn2.jpg" alt="SRN 两个隐藏单元的激活分布，按状态着色"
+           style="max-width:420px;width:100%;border:1px solid var(--line);border-radius:10px;background:#fff;padding:6px">
+      <figcaption style="font-size:.78rem;color:var(--muted);margin-top:6px">课内图：2 个隐藏单元的激活散点（颜色 = FSM 状态，jet 色图 0→6）。</figcaption>
+    </figure>
+    <table class="grid">
+      <thead><tr><th>状态</th><th>颜色</th><th>图中位置</th><th>怎么到达</th></tr></thead>
+      <tbody>
+        <tr><td>1</td><td>蓝</td><td>右下（约 0.96, −1.0）</td><td>读入 B</td></tr>
+        <tr><td>2</td><td>浅蓝</td><td>上方中部，三个簇</td><td>T（从 1）、S（从 2）</td></tr>
+        <tr><td>3</td><td>浅绿</td><td>右上（约 1.0, 1.0）</td><td>X（从 2）、P（从 5）</td></tr>
+        <tr><td>4</td><td>黄</td><td>左上，两个簇</td><td>S（从 3）、V（从 5）</td></tr>
+        <tr><td>5</td><td>橙</td><td>左下（约 −1.0, −1.0）</td><td>V（从 6）</td></tr>
+        <tr><td>6</td><td>暗红</td><td>右中（约 0.89, 0.15）</td><td>P（从 1）、X（从 3）、T（从 6）</td></tr>
+      </tbody>
+    </table>
+    <p>
+      为什么状态 2 和 3 会各自出现多个簇？因为隐藏状态不只取决于当前状态，还取决于<b>之前读过的内容</b>
+      —— 网络用不同的点表示「同样的 FSM 状态、不同的历史」。
+    </p>
+    <div class="callout why">
+      <span class="tag">关键的一问：2 和 3 的下一符号分布完全相同，为什么还要分开？</span>
+      因为<b>再往后一步</b>就不同了：从状态 2 读到 S 仍回状态 2（继续预测 S/X），从状态 3 读到 S 去状态 4（开始预测 E）。
+      所以网络必须记住自己刚才在 2 还是 3，否则下一步就会错。
+    </div>
+  </div>
+
+  <hr class="soft">
+  <h3 style="font-size:1.05rem;margin:0 0 4px">例题（课内原题）</h3>
+
+  <article class="card eg io">
+    <h4><span class="chip eg">例题 1</span>SRN 的隐藏单元聚类（Tutorial 9 Q2）</h4>
+    <div class="q">
+      <p>7 输入、2 隐藏、7 输出的 SRN 在 Reber 语法上训练。给出隐藏激活散点图，问：哪个簇对应哪个状态？状态 2 与 3 的下一符号概率相同，为什么还要区分？</p>
+    </div>
+    <button class="reveal">显示答案 ▼</button>
+    <div class="ans">
+      <p>对应关系见上表（颜色 = jet 色图的状态编号）。</p>
+      <p>要点一：状态 2 和 4 各出现多个簇，因为隐藏激活依赖更早的历史，不只依赖当前 FSM 状态。</p>
+      <p>要点二：2 与 3 虽然当下都预测 S/X 各 0.5，但下一步的去向不同（2→S→2，2→X→3；3→S→4，3→X→6），
+      所以表示必须可区分，否则无法在下一步给出正确预测。</p>
+      <div class="enbox">
+        <div class="tag">英文写法</div>
+        <p>“States 2 and 3 have identical next-symbol distributions, but they differ in the state reached after S or X, so the network must keep them distinguishable to predict correctly one step later.”</p>
+      </div>
+    </div>
+  </article>
+
+  <article class="card eg io">
+    <h4><span class="chip eg">例题 2</span>LSTM 与 SRN 在 Embedded Reber 上的对比（Tutorial 9 Q3）</h4>
+    <div class="q">
+      <p>两个网络各 4 个隐藏单元，训练 50 000 epochs。对某个测试串，倒数第二个符号（内层 E 之后）的预测如下：</p>
+      <table class="grid">
+        <thead><tr><th>网络</th><th>测试串</th><th class="num">P(T)</th><th class="num">P(P)</th><th class="num">final error</th></tr></thead>
+        <tbody>
+          <tr><td>LSTM</td><td>BTBTSSSSXXVPXTTVPXTVVETE</td><td class="num">0.87</td><td class="num">0.12</td><td class="num">0.004</td></tr>
+          <tr><td>SRN</td><td>BPBPTTVVEPE</td><td class="num">0.49</td><td class="num">0.51</td><td class="num">0.069</td></tr>
+        </tbody>
+      </table>
+      <p>问：哪个学会了任务？验证 SRN 的 final error；为什么 SRN 更难？</p>
+    </div>
+    <button class="reveal">显示答案 ▼</button>
+    <div class="ans">
+      <p>LSTM 学会了：它的串第二个符号是 T，于是给 T 高概率 0.87。</p>
+      <p>SRN 没学会长程依赖：虽然它的串第二个符号是 P，它给 T/P 几乎各 0.5 —— 只能猜。
+      但它在串的其余位置误差很小（约 0.002），说明它学会了<b>内层 Reber 语法</b>，只是记不住外层是 T 还是 P。</p>
+      <p>验证误差：目标是 P=1、其余 0，故
+      $\text{final}=\dfrac{0.49^2+(1-0.51)^2}{7}=\dfrac{0.4802}{7}=0.0686\approx0.069$。
+      纯 50/50 猜则是 $\dfrac{0.5^2+0.5^2}{7}=0.071$ —— 它几乎就是在猜。</p>
+      <div class="res">LSTM 学会；SRN 只学到内层语法，误差 0.069 ≈ 纯猜的 0.071</div>
+      <p>原因：要预测倒数第二个符号，必须记住<b>整个嵌入串之前</b>的第二个符号。SRN 的信息每步都过 tanh 和权重，
+      逐渐衰减，梯度也随步数连乘而消失；LSTM 把信息存在 cell 里，遗忘门接近 1、输入门接近 0 时可以原样携带，
+      需要时由输出门释放。</p>
+      <div class="enbox">
+        <div class="tag">英文写法</div>
+        <p>“The LSTM stores the T/P distinction in its cell state, which is carried forward almost unchanged while the embedded string is processed, whereas in the SRN the information must pass through the recurrent weights and tanh at every step and therefore decays.”</p>
+      </div>
+    </div>
+  </article>
+
+  <h3 style="font-size:1.05rem;margin:26px 0 4px">练习</h3>
+
+  <article class="card easy io">
+    <h4><span class="chip easy">易</span>练习 1 · 手算一步 RNN</h4>
+    <div class="q"><p>$x_1=1$，$h_0=0$，$W=0.8$，$U=0.5$，$b=0.1$。求 $h_1$。</p></div>
+    <button class="reveal">显示答案 ▼</button>
+    <div class="ans">
+      <p>$h_1=\tanh(0.8\times1+0.5\times0+0.1)=\tanh(0.9)=0.7163$。</p>
+      <div class="res">$h_1=0.7163$</div>
+    </div>
+  </article>
+
+  <article class="card mid io">
+    <h4><span class="chip mid">练习 2</span>LSTM 的一次更新</h4>
+    <div class="q"><p>$c_{t-1}=0.5$，$f=0.2$，$i=0.7$，$\tilde c=0.9$，$o=0.6$。求 $c_t$ 与 $h_t$。</p></div>
+    <button class="reveal">显示答案 ▼</button>
+    <div class="ans">
+      <p>$c_t=0.2(0.5)+0.7(0.9)=0.1+0.63=0.73$。</p>
+      <p>$h_t=0.6\tanh(0.73)=0.6\times0.623=0.374$。</p>
+      <div class="res">$c_t=0.73$，$h_t=0.374$</div>
+    </div>
+  </article>
+
+  <article class="card hard io">
+    <h4><span class="chip hard">练习 3</span>为什么注意力能缓解长程依赖</h4>
+    <div class="q"><p>从「梯度路径长度」的角度解释：自注意力相比 RNN 的优势。</p></div>
+    <button class="reveal">显示答案 ▼</button>
+    <div class="ans">
+      <p>RNN 中，位置 $t$ 的信息要传到位置 $T$，必须经过 $T-t$ 次递推，梯度也要连乘 $T-t$ 个雅可比矩阵，长度 $O(T)$，容易消失。</p>
+      <p>自注意力中，任意两个位置通过一次加权求和直接相连，路径长度 $O(1)$，梯度不必穿过长链；代价是计算量 $O(T^2)$。</p>
+      <div class="res">路径 $O(T)\to O(1)$，代价 $O(T^2)$ 计算</div>
+    </div>
+  </article>
+
+  <h3 style="font-size:1.05rem;margin:26px 0 4px">变种题</h3>
+
+  <article class="card var io">
+    <h4><span class="chip var">变种 1</span>把遗忘门设成 1</h4>
+    <div class="q"><p>若 $f_t=1$ 且 $i_t=0$，$c_t$ 与 $h_t$ 会怎样？这对应什么行为？</p></div>
+    <button class="reveal">显示答案 ▼</button>
+    <div class="ans">
+      <p>$c_t=c_{t-1}$，记忆完全不变；$h_t=o_t\tanh(c_{t-1})$，只由输出门决定是否暴露。</p>
+      <p>这对应「忽略当前输入、原样携带记忆」—— 正是 Embedded Reber 中跨越任意长嵌入串所需要的行为。</p>
+    </div>
+  </article>
+
+  <article class="card var io">
+    <h4><span class="chip var">变种 2</span>把 tanh 换成 ReLU</h4>
+    <div class="q"><p>RNN 的隐藏层若改用 ReLU，梯度消失会改善吗？有什么新风险？</p></div>
+    <button class="reveal">显示答案 ▼</button>
+    <div class="ans">
+      <p>正半轴导数为 1，连乘不再指数衰减，能缓解消失；但权重稍大就会指数<b>爆炸</b>，且隐藏状态无界。</p>
+      <p>所以实践中配梯度裁剪、正交初始化或门控结构。简单 ReLU RNN 往往不如 LSTM 稳定。</p>
+    </div>
+  </article>
+
+  <details class="gloss">
+    <summary>本章术语表</summary>
+    <div class="body">
+      <dl>
+        <dt>recurrent neural network<em>循环神经网络</em></dt><dd>隐藏状态沿时间传递的网络。</dd>
+        <dt>SRN / Elman network<em>简单循环网络</em></dt><dd>$h_t=\tanh(Wx+Uh_{t-1}+b)$。</dd>
+        <dt>unroll<em>展开</em></dt><dd>把循环按时间画成多层前馈结构。</dd>
+        <dt>BPTT<em>沿时间反向传播</em></dt><dd>在展开图上做反向传播。</dd>
+        <dt>long-range dependency<em>长程依赖</em></dt><dd>当前输出依赖很久之前的输入。</dd>
+        <dt>vanishing / exploding gradient<em>梯度消失/爆炸</em></dt><dd>连乘因子导致梯度趋 0 或发散。</dd>
+        <dt>LSTM<em>长短期记忆</em></dt><dd>带输入/遗忘/输出门与细胞状态的 RNN。</dd>
+        <dt>cell state<em>细胞状态</em></dt><dd>LSTM 中可近似线性传递的记忆通道。</dd>
+        <dt>GRU<em>门控循环单元</em></dt><dd>LSTM 的简化版，更新门 + 重置门。</dd>
+        <dt>attention<em>注意力</em></dt><dd>按 query-key 相似度加权聚合 value。</dd>
+        <dt>teacher forcing<em>教师强制</em></dt><dd>训练时用真实前缀作为下一步输入。</dd>
+      </dl>
+    </div>
+  </details>
+
+  <label class="done"><input type="checkbox" data-id="ch11"> 标记本章已掌握</label>
+  <div class="chnav">
+    <a href="#ch10"><small>上一章</small>← 10 · 强化学习</a>
+    <a class="next" href="#mock1"><small>下一步</small>模拟卷 ① →</a>
+  </div>
+</section>

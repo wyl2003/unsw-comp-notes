@@ -1,0 +1,99 @@
+<section class="chapter" id="mock1">
+  <header class="chapter-head">
+    <div class="kicker">模拟卷 ① · 基础 · 60 分钟 · 30 分</div>
+    <h2>模拟考试 · 基础卷</h2>
+    <p class="lead">
+      覆盖第 1–7 章的核心计算。目标：<b>25 分以上</b>再进入进阶卷。所有题都能在 3 步以内算完，考的是「有没有记牢公式」。
+      先合上答案做一遍，再逐题对。
+    </p>
+  </header>
+
+  <article class="card eg io">
+    <h4><span class="chip eg">Q1</span>参数计数 <span class="chip pts">5 分</span></h4>
+    <div class="q">
+      <p>全连接网络：输入 3 维 → 隐藏层 5 个 ReLU → 输出 2 个线性单元。共有多少个可训练参数（含 bias）？</p>
+    </div>
+    <button class="reveal">显示答案 ▼</button>
+    <div class="ans">
+      <p>第一层 $3\times5+5=20$；第二层 $5\times2+2=12$。</p>
+      <div class="res">32</div>
+      <p>评分：两个层各 2 分，合计 1 分。</p>
+    </div>
+  </article>
+
+  <article class="card easy io">
+    <h4><span class="chip easy">Q2</span>前向传播 <span class="chip pts">5 分</span></h4>
+    <div class="q">
+      <p>单元 $s=1.2-0.5x_1+0.8x_2$，输入 $(2,-1)$。分别求 sigmoid 与 ReLU 的输出（4 位小数）。</p>
+    </div>
+    <button class="reveal">显示答案 ▼</button>
+    <div class="ans">
+      <p>$s=1.2-1-0.8=-0.6$。</p>
+      <p>sigmoid：$\sigma(-0.6)=0.3543$；ReLU：$\max(0,-0.6)=0$。</p>
+      <div class="res">0.3543 与 0</div>
+    </div>
+  </article>
+
+  <article class="card mid io">
+    <h4><span class="chip mid">Q3</span>感知机一次更新 <span class="chip pts">5 分</span></h4>
+    <div class="q">
+      <p>$w=(0.5,-1,2)$，样例 $x=(1,2)$，目标 $-1$，$\eta=1$。写出更新后的权重。</p>
+    </div>
+    <button class="reveal">显示答案 ▼</button>
+    <div class="ans">
+      <p>$s=0.5-1+4=3.5\gt 0\Rightarrow y=+1$，与 $t=-1$ 不符。</p>
+      <p>$\eta\frac{t-y}{2}=-1$，故 $w\leftarrow w-(1,1,2)=(-0.5,-2,0)$。</p>
+      <div class="res">$(-0.5,\,-2,\,0)$</div>
+    </div>
+  </article>
+
+  <article class="card mid io">
+    <h4><span class="chip mid">Q4</span>熵与 KL <span class="chip pts">5 分</span></h4>
+    <div class="q">
+      <p>$p=\langle0.5,0.5\rangle$，$q=\langle0.75,0.25\rangle$。求 $H(p)$、$H(q)$、$D(p\Vert q)$（bits）。</p>
+    </div>
+    <button class="reveal">显示答案 ▼</button>
+    <div class="ans">
+      <p>$H(p)=1$；$H(q)=0.8113$。</p>
+      <p>$D(p\Vert q)=0.5\log_2\frac{0.5}{0.75}+0.5\log_2\frac{0.5}{0.25}=-0.2925+0.5=0.2075$。</p>
+      <div class="res">$1$，$0.8113$，$0.2075$</div>
+    </div>
+  </article>
+
+  <article class="card easy io">
+    <h4><span class="chip easy">Q5</span>Softmax <span class="chip pts">5 分</span></h4>
+    <div class="q">
+      <p>$z=(0,1,2)$，求 softmax（3 位小数）以及目标为第 3 类时的交叉熵。</p>
+    </div>
+    <button class="reveal">显示答案 ▼</button>
+    <div class="ans">
+      <p>分母 $1+2.718+7.389=11.107$；$p=(0.090,\,0.245,\,0.665)$。</p>
+      <p>$E=-\ln0.665=0.408$ nats。</p>
+      <div class="res">$(0.090,0.245,0.665)$，$E=0.408$</div>
+    </div>
+  </article>
+
+  <article class="card hard io">
+    <h4><span class="chip hard">Q6</span>卷积尺寸 <span class="chip pts">5 分</span></h4>
+    <div class="q">
+      <p>$28\times28\times1$ 输入，32 个 $5\times5$ 卷积核，stride 1，无 padding。输出尺寸、每个 filter 参数、总参数？</p>
+    </div>
+    <button class="reveal">显示答案 ▼</button>
+    <div class="ans">
+      <p>输出 $1+(28-5)=24$，即 $24\times24\times32$。</p>
+      <p>每个 filter $1+5\times5\times1=26$；总参数 $32\times26=832$。</p>
+      <div class="res">$24\times24\times32$，832</div>
+    </div>
+  </article>
+
+  <div class="callout note" style="margin-top:24px">
+    <span class="tag">评分参考</span>
+    25–30：基础扎实，直接进入进阶卷。18–24：回看错题对应小节。低于 18：先重读第 1–4 章的「讲解单元」。
+  </div>
+
+  <label class="done"><input type="checkbox" data-id="mock1"> 标记本卷已完成</label>
+  <div class="chnav">
+    <a href="#ch11"><small>上一章</small>← 11 · 序列建模</a>
+    <a class="next" href="#mock2"><small>下一卷</small>模拟卷 ② 进阶 →</a>
+  </div>
+</section>

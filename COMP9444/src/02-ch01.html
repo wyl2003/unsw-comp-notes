@@ -1,0 +1,350 @@
+<section class="chapter" id="ch1">
+  <header class="chapter-head">
+    <div class="kicker">模块 01 · Lecture 1a / 1b</div>
+    <h2>神经元与网络的基本零件</h2>
+    <p class="lead">
+      深度学习听起来吓人，但整门课的第一层地基只有一个式子：<b>加权求和 + 一个弯曲函数</b>。
+      这一章把「一个单元在算什么」「为什么要弯曲」「网络有多少参数」「学习到底在最小化什么」四件事讲透。
+      后面 10 章都是在这四件事上加零件。
+    </p>
+    <div class="glance">
+      <div><h5>考试怎么考</h5>给结构数参数；给输入和权重算输出；解释某个激活函数为什么好；问「为什么需要非线性」。</div>
+      <div><h5>你需要先会</h5>向量点积、求和符号 $\sum$、指数函数、链式法则（下一章会补）。</div>
+    </div>
+    <div class="minitoc">
+      <a href="#s1-1">1.1 一个神经元</a><a href="#s1-2">1.2 为什么必须弯曲</a>
+      <a href="#s1-3">1.3 前向传播</a><a href="#s1-4">1.4 参数计数</a>
+      <a href="#s1-5">1.5 损失函数</a><a href="#s1-6">1.6 激活函数总表</a>
+    </div>
+  </header>
+
+  <div class="lesson" id="s1-1">
+    <h3><span class="num">1.1</span>一个神经元，就是一次「加权投票」</h3>
+    <p>
+      想象你要判断「这张图是不是猫」。你手里有几条线索：有没有胡须（$x_1$）、耳朵尖不尖（$x_2$）、
+      体型大不大（$x_3$）。每条线索的重要程度不同，你给它们打分：胡须很重要（$w_1=3$），
+      耳朵一般（$w_2=1$），体型甚至是反向证据（$w_3=-2$，越大越不像猫）。
+    </p>
+    <p>
+      于是你的判断分数就是「线索 × 权重」的累加，再减去一个门槛（你有多不情愿说“是猫”）：
+    </p>
+    <div class="mathbox">
+      <div class="cap">单个神经元（unit / neuron）</div>
+      $$s=\sum_{i=1}^{n} w_i x_i + b \qquad\text{（加权和，pre-activation）}$$
+      $$y=f(s)\qquad\text{（激活后的输出，activation）}$$
+    </div>
+    <table class="sym">
+      <caption>逐个符号</caption>
+      <tr><th>$x_i$</th><td>第 $i$ 个输入（input）。图片里就是像素，词袋里就是词频。</td></tr>
+      <tr><th>$w_i$</th><td>权重（weight）。<b>它是学出来的</b>：模型唯一真正改变的东西。</td></tr>
+      <tr><th>$b$</th><td>偏置（bias）。可以理解成「门槛的负数」：分数要超过 $-b$ 才兴奋。</td></tr>
+      <tr><th>$s$</th><td>加权和 / 预激活（pre-activation）。注意：反向传播里的 $d=\partial E/\partial s$ 就是对它求导。</td></tr>
+      <tr><th>$f$</th><td>激活函数（activation function）。下一节的主角。</td></tr>
+    </table>
+
+    <div class="callout why">
+      <span class="tag">为什么要有 bias</span>
+      没有 $b$，当所有输入都是 0 时输出永远是 $f(0)$，模型连「整体偏保守还是偏激进」都调不了。
+      数学上 bias 等价于给输入多加一维恒为 1 的 $x_0=1$，所以很多教材把 $b$ 写成 $w_0$。
+    </div>
+
+    <div class="viz" data-viz="act">
+      <div class="viz-head">
+        <span class="lab">LAB 01</span><h5>激活函数长什么样，导数长什么样</h5>
+        <span class="hint">切换曲线 / 拖 s</span>
+      </div>
+      <div class="viz-body"></div>
+      <div class="viz-note">
+        <b>怎么读这张图：</b>实线是 $f(s)$，紫色虚线是它的导数 $f'(s)$，红短线是当前点的切线。
+        你会看到 sigmoid 的导数最高只有 0.25（在 $s=0$），而 ReLU 的导数在正半轴恒为 1 —— 这正是后面「梯度消失」的根源。
+      </div>
+    </div>
+  </div>
+
+  <div class="lesson" id="s1-2">
+    <h3><span class="num">1.2</span>为什么必须有激活函数：没有它，深度毫无意义</h3>
+    <p>
+      先把结论说了：<b>如果每一层都只是线性变换，叠 100 层等于 1 层。</b>证明只需要一行矩阵乘法。
+    </p>
+    <p>设两层都是线性的（$f$ 是恒等映射）：</p>
+    <div class="mathbox eq">
+      $$y = W_2\,(W_1 x) = (W_2W_1)\,x = W x$$
+    </div>
+    <p>
+      括号可以随便挪，$W_2W_1$ 仍然是一个矩阵。所以「深度」在纯线性网络里只是把权重换个写法，
+      表达能力一点没增加。引入非线性 $f$ 之后，$W_2 f(W_1x)$ 就不能再合并成一个矩阵了 ——
+      网络才开始能表示「弯曲」的决策边界。
+    </p>
+    <div class="callout note">
+      <span class="tag">一句话记住</span>
+      非线性 = 网络能弯曲 = 能表示 XOR、能逼近任意连续函数（universal approximation）。
+      线性 = 只能画一条直线/一个平面。
+    </div>
+    <p>
+      这也解释了为什么第 2 章的感知机（阶跃函数，只有 0 和 1 两档）连 XOR 都做不了，
+      而加一个隐藏层就可以：中间层先把空间折一下，输出层再切一刀。
+    </p>
+
+    <details class="gloss">
+      <summary>顺手复习：生物神经元 ↔ 人工单元</summary>
+      <div class="body">
+        <dl>
+          <dt>soma<em>胞体</em></dt><dd>做求和与激活的那个单元本体。</dd>
+          <dt>dendrite<em>树突</em></dt><dd>接收信号 → 输入 $x_i$。</dd>
+          <dt>axon<em>轴突</em></dt><dd>把输出送出去 → $y$。</dd>
+          <dt>synapse<em>突触</em></dt><dd>连接强度 → 权重 $w_i$；学习就是改突触强度（synaptic plasticity）。</dd>
+          <dt>spike / firing rate<em>脉冲 / 放电率</em></dt><dd>生物是离散脉冲、异步；人工单元是连续实数、同步逐层。这是两者最大的差别。</dd>
+        </dl>
+        <p style="font-size:.85rem;color:var(--ink-2);margin:10px 0 0">
+          若题目问「这个模型哪里不像大脑」，标准答法：没有时间维度、没有脉冲编码、反向传播需要对称的反馈通路，
+          在生物上不可信（biologically implausible）。
+        </p>
+      </div>
+    </details>
+  </div>
+
+  <div class="lesson" id="s1-3">
+    <h3><span class="num">1.3</span>从单元到网络：前向传播就是反复代入</h3>
+    <p>
+      把单元排成列，前一列的每个输出都接到后一列的每个输入，就叫<b>全连接层</b>（fully connected / dense layer）。
+      「前向传播」（forward pass）没有任何魔法：从左到右，一层一层算下去。
+    </p>
+    <p>下面这个 2-2-1 网络，我们完整手算一遍。<b>这种题考试必出，一定要会。</b></p>
+    <div class="mathbox">
+      <div class="cap">给定</div>
+      $$x_1=0.5,\quad x_2=-0.4$$
+      $$w_{11}=0.6,\; w_{12}=-0.3,\; b_1=0.2;\qquad w_{21}=0.4,\; w_{22}=0.8,\; b_2=-0.5$$
+      $$v_1=1.2,\quad v_2=-0.9,\quad c=0.1$$
+    </div>
+    <div class="ans show" style="border-top:0;margin-top:0">
+      <div class="step"><b>step 1</b><div>隐藏单元 1 的加权和：$u_1=0.6(0.5)+(-0.3)(-0.4)+0.2=0.3+0.12+0.2=0.62$。</div></div>
+      <div class="step"><b>step 2</b><div>过 sigmoid：$y_1=\sigma(0.62)=\dfrac{1}{1+e^{-0.62}}=0.6502$。</div></div>
+      <div class="step"><b>step 3</b><div>隐藏单元 2：$u_2=0.4(0.5)+0.8(-0.4)-0.5=0.2-0.32-0.5=-0.62$，$y_2=\sigma(-0.62)=0.3498$。</div></div>
+      <div class="step"><b>step 4</b><div>输出层是线性的：$z=1.2(0.6502)+(-0.9)(0.3498)+0.1=0.7802-0.3148+0.1$。</div></div>
+      <div class="res">$z=0.5654$</div>
+    </div>
+    <div class="callout trap">
+      <span class="tag">易错</span>
+      矩阵写法 $y=f(Wx+b)$ 里，$W$ 的第 $j$ 行对应第 $j$ 个单元，所以 $w_{ji}$ 的下标是「<b>目标在前，来源在后</b>」。
+      写反了整道题全错。答题时先写一句 “$w_{ji}$ connects unit $i$ to unit $j$”。
+    </div>
+  </div>
+
+  <div class="lesson" id="s1-4">
+    <h3><span class="num">1.4</span>参数计数：考官最爱的一分钟题</h3>
+    <p>
+      全连接层里，每个「输入—输出」对有一个权重，每个输出单元有一个 bias。所以第 $l$ 层（输入 $n_{l-1}$ 个，输出 $n_l$ 个）：
+    </p>
+    <div class="mathbox">
+      <div class="cap">参数个数</div>
+      $$P_l=\underbrace{n_{l-1}\times n_l}_{\text{权重}}+\underbrace{n_l}_{\text{bias}},\qquad
+        P=\sum_{l=1}^{L}P_l$$
+    </div>
+    <p>三个高频陷阱：</p>
+    <ul>
+      <li><b>bias 别忘了</b>：题目写“including biases”才加，没写也要说明你加了。</li>
+      <li><b>输入层不算一层</b>：输入不是参数，只是数据。</li>
+      <li><b>卷积层不是全连接</b>：权重共享，参数是 $k\times k\times C_{\text{in}}\times C_{\text{out}}+C_{\text{out}}$（第 8 章细讲）。</li>
+    </ul>
+
+    <div class="viz" data-viz="params">
+      <div class="viz-head">
+        <span class="lab">LAB 02</span><h5>拖宽度，看参数怎么爆炸</h5>
+        <span class="hint">每层单元数可调</span>
+      </div>
+      <div class="viz-body"></div>
+      <div class="viz-note">
+        注意总参数随宽度<b>平方</b>增长：宽度翻倍，参数约变四倍。这就是大模型贵的原因，也是为什么卷积（权重共享）重要。
+      </div>
+    </div>
+  </div>
+
+  <div class="lesson" id="s1-5">
+    <h3><span class="num">1.5</span>学习 = 把一个「错多少」的数压到最小</h3>
+    <p>
+      网络输出的 $z$ 和正确答案 $t$（target）之间的差距，需要一个数字来衡量，叫<b>损失函数</b>（loss / cost / error）。
+      整门课的所有「学习」都在做同一件事：调权重让损失变小。
+    </p>
+    <div class="mathbox">
+      <div class="cap">两种最常用的损失</div>
+      $$\text{平方误差（回归）:}\quad E=\frac{1}{2}\sum_{k}(z_k-t_k)^2$$
+      $$\text{交叉熵（分类）:}\quad E=-\sum_{k}t_k\ln y_k$$
+    </div>
+    <p>
+      平方误差前面的 $\tfrac12$ 只是为了求导时把 2 消掉，不影响最优解。交叉熵为什么长这样、为什么分类更爱用它，
+      第 7 章会用一整章讲清楚；现在只要知道：
+    </p>
+    <table class="grid">
+      <thead><tr><th>场景</th><th>输出层</th><th>损失</th><th>为什么</th></tr></thead>
+      <tbody>
+        <tr><td>回归（预测一个数）</td><td>线性</td><td>平方误差</td><td>误差大时惩罚更重，梯度随误差线性增长</td></tr>
+        <tr><td>二分类</td><td>sigmoid</td><td>二元交叉熵</td><td>配合起来梯度正好是 $y-t$，不会被 sigmoid 压扁</td></tr>
+        <tr><td>多分类</td><td>softmax</td><td>交叉熵</td><td>同上，且概率解释干净</td></tr>
+      </tbody>
+    </table>
+    <div class="callout why">
+      <span class="tag">为什么不能只用「分类错误率」</span>
+      错误率是阶梯函数，几乎处处导数为 0，梯度下降完全不知道该往哪走。损失函数必须是<b>光滑可导</b>的替身。
+    </div>
+  </div>
+
+  <div class="lesson" id="s1-6">
+    <h3><span class="num">1.6</span>四个激活函数，一张表背完</h3>
+    <table class="grid">
+      <thead><tr><th>名字</th><th>公式</th><th>值域</th><th>导数</th><th>什么时候用</th></tr></thead>
+      <tbody>
+        <tr><td><b>step</b> 阶跃</td><td>$1$ if $s\gt 0$ else $0$</td><td>$\{0,1\}$</td><td>几乎处处 0</td><td>感知机、理论证明</td></tr>
+        <tr><td><b>sigmoid</b></td><td>$\dfrac{1}{1+e^{-s}}$</td><td>$(0,1)$</td><td>$y(1-y)\le 0.25$</td><td>二分类输出、LSTM 的门</td></tr>
+        <tr><td><b>tanh</b></td><td>$\dfrac{e^{s}-e^{-s}}{e^{s}+e^{-s}}$</td><td>$(-1,1)$</td><td>$1-y^2\le 1$</td><td>隐藏层（零中心，收敛更快）</td></tr>
+        <tr><td><b>ReLU</b></td><td>$\max(0,s)$</td><td>$[0,\infty)$</td><td>$1$ if $s\gt 0$ else $0$</td><td>现代网络隐藏层默认</td></tr>
+        <tr><td><b>softmax</b></td><td>$\dfrac{e^{z_i}}{\sum_j e^{z_j}}$</td><td>概率，和 = 1</td><td>见第 7 章</td><td>多分类输出层</td></tr>
+      </tbody>
+    </table>
+    <div class="callout note">
+      <span class="tag">记忆钩子</span>
+      sigmoid 的导数就是 $y(1-y)$（输出自己就能算），tanh 是 $1-y^2$。这两个式子在手算反向传播时能省一半时间。
+      ReLU 的导数是「看 $s$ 的正负，不是看 $y$」—— 这点很多人错。
+    </div>
+    <div class="enbox">
+      <div class="tag">考场英文</div>
+      <p>“ReLU is piecewise linear and its gradient is exactly 1 for positive pre-activations, which mitigates vanishing gradients.”</p>
+      <p>“Sigmoid saturates for large $|s|$, so its derivative vanishes and deep stacks learn very slowly.”</p>
+      <p class="zh">万能两句：ReLU 缓解梯度消失；sigmoid 会饱和。</p>
+    </div>
+  </div>
+
+  <hr class="soft">
+  <h3 style="font-size:1.05rem;margin:0 0 4px">例题</h3>
+
+  <article class="card eg io">
+    <h4><span class="chip eg">例题 1</span>数一数参数</h4>
+    <div class="q">
+      <p>一个全连接网络：输入 6 维 → 隐藏层 2 个 tanh 单元 → 输出 3 个 sigmoid 单元。共有多少个可训练参数（含 bias）？</p>
+      <span class="en">A fully connected network with 6 inputs, 2 hidden tanh units and 3 sigmoid outputs — how many trainable parameters including biases?</span>
+    </div>
+    <button class="reveal">显示答案 ▼</button>
+    <div class="ans">
+      <div class="step"><b>层 1</b><div>$6\times 2+2=14$</div></div>
+      <div class="step"><b>层 2</b><div>$2\times 3+3=9$</div></div>
+      <div class="step"><b>合计</b><div>$14+9=23$</div></div>
+      <div class="res">23 个参数</div>
+      <p>激活函数<b>不引入参数</b>（tanh / sigmoid 没有可学的东西）。这是考官最常设的陷阱：把激活函数也数进去。</p>
+    </div>
+  </article>
+
+  <article class="card eg io">
+    <h4><span class="chip eg">例题 2</span>手算一次前向传播</h4>
+    <div class="q">
+      <p>用 1.3 节那组权重，输入 $x=(0.5,-0.4)$，求隐藏层输出 $y_1,y_2$ 与最终输出 $z$（4 位小数）。</p>
+    </div>
+    <button class="reveal">显示答案 ▼</button>
+    <div class="ans">
+      <p>$u_1=0.62,\;y_1=\sigma(0.62)=0.6502$；$u_2=-0.62,\;y_2=\sigma(-0.62)=0.3498$。</p>
+      <p>$z=1.2(0.6502)-0.9(0.3498)+0.1=0.5654$。</p>
+      <div class="enbox">
+        <div class="tag">英文写法</div>
+        <p>“The pre-activation of the first hidden unit is $u_1=0.62$, hence $y_1=\sigma(0.62)=0.6502$.”</p>
+      </div>
+    </div>
+  </article>
+
+  <h3 style="font-size:1.05rem;margin:26px 0 4px">练习</h3>
+
+  <article class="card easy io">
+    <h4><span class="chip easy">易</span>练习 1 · 四种激活各算一次</h4>
+    <div class="q">
+      <p>某单元 $s=-1.5+2x_1-x_2$，输入 $(x_1,x_2)=(1,0.5)$。给出 step（阈值 0）、sigmoid、tanh、ReLU 四种激活下的输出（3 位小数）。</p>
+    </div>
+    <button class="reveal">显示答案 ▼</button>
+    <div class="ans">
+      <p>$s=-1.5+2(1)-0.5=0$。</p>
+      <div class="step"><b>step</b><div>$s=0$ 不满足 $s\gt 0$，输出 $0$。</div></div>
+      <div class="step"><b>sigmoid</b><div>$\sigma(0)=0.5$</div></div>
+      <div class="step"><b>tanh</b><div>$\tanh(0)=0$</div></div>
+      <div class="step"><b>ReLU</b><div>$\max(0,0)=0$</div></div>
+      <p><b>要点</b>：阈值处的取舍是约定问题，答题时写 “taking step$(0)=0$” 即可。</p>
+    </div>
+  </article>
+
+  <article class="card mid io">
+    <h4><span class="chip mid">中</span>练习 2 · 反推隐藏层宽度</h4>
+    <div class="q">
+      <p>一个 4 输入 → 单隐藏层（tanh）→ 2 输出的全连接网络共有 79 个参数（含 bias）。隐藏层有多少个单元？</p>
+    </div>
+    <button class="reveal">显示答案 ▼</button>
+    <div class="ans">
+      <p>设隐藏层 $h$ 个单元：第一层 $4h+h$，第二层 $2h+2$，合计 $7h+2$。</p>
+      <p>$7h+2=79\Rightarrow h=11$。</p>
+      <div class="res">11 个隐藏单元</div>
+      <p><b>考场写法</b>：“Let $h$ be the number of hidden units. Then $7h+2=79$, so $h=11$.”</p>
+    </div>
+  </article>
+
+  <article class="card hard io">
+    <h4><span class="chip hard">难</span>练习 3 · 证明线性网络没有深度</h4>
+    <div class="q">
+      <p>设两层网络都是线性激活 $y=c\,s$。证明：无论权重取何值，整个网络都等价于一个单层线性变换；并说明为什么这对「深度」是致命的。</p>
+    </div>
+    <button class="reveal">显示答案 ▼</button>
+    <div class="ans">
+      <p>第一层 $h=W_1x+b_1$，第二层 $y=W_2h+b_2=W_2(W_1x+b_1)+b_2=(W_2W_1)x+(W_2b_1+b_2)$。</p>
+      <p>令 $W=W_2W_1$、$b=W_2b_1+b_2$，则 $y=Wx+b$ —— 与单层完全同形，参数量还更多（$W_2W_1$ 只有 $\min$ 秩的自由度）。</p>
+      <div class="res">结论：线性堆叠 ⊂ 单层线性</div>
+      <p>深度只有在层间插入<b>非线性</b>时才有意义，因为此时括号不能挪：$W_2 f(W_1x)\ne (W_2W_1)x$。</p>
+      <div class="enbox">
+        <div class="tag">英文写法</div>
+        <p>“Composing linear maps yields another linear map, so a stack of linear layers has exactly the representational power of a single linear layer.”</p>
+      </div>
+    </div>
+  </article>
+
+  <h3 style="font-size:1.05rem;margin:26px 0 4px">变种题</h3>
+
+  <article class="card var io">
+    <h4><span class="chip var">变种 1</span>把 tanh 换成 PReLU</h4>
+    <div class="q">
+      <p>练习 2 的网络若把 tanh 换成「带 1 个可学习参数的 PReLU」：$f(s)=\max(s,0)+a\min(s,0)$，每个单元一个 $a$。参数总数变成多少？</p>
+    </div>
+    <button class="reveal">显示答案 ▼</button>
+    <div class="ans">
+      <p>原 79 个 + 11 个 $a$ = <b>90</b>。</p>
+      <p>注意：如果题目说「所有单元共享一个 $a$」，那只加 1 个，变成 80。审题时看清 “per unit” 还是 “shared”。</p>
+    </div>
+  </article>
+
+  <article class="card var io">
+    <h4><span class="chip var">变种 2</span>用一句话解释梯度消失</h4>
+    <div class="q">
+      <p>用 sigmoid 堆 10 层，为什么靠近输入的层几乎学不动？用导数公式定量说明。</p>
+    </div>
+    <button class="reveal">显示答案 ▼</button>
+    <div class="ans">
+      <p>sigmoid 导数 $f'=y(1-y)\le 0.25$。反向传播时每过一层要乘一次局部导数，10 层最多乘 $0.25^{10}\approx 9.5\times10^{-7}$。</p>
+      <p>即梯度从输出到输入衰减了约 $10^6$ 倍，权重更新量小到可以忽略 —— 这就是 vanishing gradient。</p>
+      <div class="res">$0.25^{10}\approx 9.5\times 10^{-7}$</div>
+    </div>
+  </article>
+
+  <details class="gloss">
+    <summary>本章术语表（考前扫一遍）</summary>
+    <div class="body">
+      <dl>
+        <dt>unit / neuron<em>单元 / 神经元</em></dt><dd>一个「加权求和 + 激活」的计算单元。</dd>
+        <dt>weight / bias<em>权重 / 偏置</em></dt><dd>可训练参数；bias 相当于门槛的负数。</dd>
+        <dt>pre-activation<em>预激活</em></dt><dd>加权和 $s$，激活前的值；反向传播对它求导。</dd>
+        <dt>activation function<em>激活函数</em></dt><dd>引入非线性的函数，如 sigmoid / tanh / ReLU。</dd>
+        <dt>fully connected / dense<em>全连接</em></dt><dd>相邻两层所有单元两两相连。</dd>
+        <dt>forward pass<em>前向传播</em></dt><dd>从输入逐层算到输出。</dd>
+        <dt>loss / cost / error<em>损失</em></dt><dd>衡量预测与目标差距的可导标量。</dd>
+        <dt>saturation<em>饱和</em></dt><dd>激活函数进入平坦区，导数趋近 0。</dd>
+        <dt>universal approximation<em>通用逼近</em></dt><dd>含非线性隐藏层的网络可逼近任意连续函数。</dd>
+      </dl>
+    </div>
+  </details>
+
+  <label class="done"><input type="checkbox" data-id="ch1"> 标记本章已掌握</label>
+  <div class="chnav">
+    <a href="#howto"><small>上一章</small>← 怎么用这本手册</a>
+    <a class="next" href="#ch2"><small>下一章</small>02 · 感知机与学习算法 →</a>
+  </div>
+</section>

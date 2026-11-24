@@ -1,0 +1,102 @@
+<section class="chapter" id="howto">
+  <header class="chapter-head">
+    <div class="kicker">开始之前</div>
+    <h2>怎么用这本手册</h2>
+    <p class="lead">
+      你不需要先看过任何讲义。整本手册按「<b>先讲懂 → 再手算 → 再做原题 → 最后模考</b>」的顺序组织，
+      每一节都从「为什么需要这个东西」开始。如果你只剩一个晚上，直接跳到最后一节的<b>急救路线</b>。
+    </p>
+  </header>
+
+  <div class="lesson">
+    <h3><span class="num">A</span>每一章长什么样</h3>
+    <p>同一套骨架重复 11 次，习惯之后你就能高速阅读：</p>
+    <table class="grid">
+      <thead><tr><th style="width:22%">板块</th><th>作用</th><th style="width:22%">看到它时该做什么</th></tr></thead>
+      <tbody>
+        <tr><td><b>讲解单元</b>（带编号的小节）</td><td>把概念从零讲清楚：直觉 → 公式 → 逐个符号解释 → 手算例子</td><td>慢读，读完在纸上复述一遍</td></tr>
+        <tr><td><b>LAB 实验</b></td><td>可拖、可点、可播放的交互图</td><td>动手玩 1–2 分钟，把参数推到极端看会发生什么</td></tr>
+        <tr><td><b>例题</b>（蓝色）</td><td>课内 tutorial 原题，答案逐步给全</td><td>先盖住答案自己做，再逐行对</td></tr>
+        <tr><td><b>练习</b>（绿/黄/红）</td><td>易 → 中 → 难，检验是否真的会</td><td>至少做完「易」和「中」</td></tr>
+        <tr><td><b>变种</b>（紫色）</td><td>把课内题换个数字/换个问法，防背答案</td><td>考前最后一遍做这个</td></tr>
+        <tr><td><b>术语表</b></td><td>中英对照 + 一句话记忆钩子</td><td>考前 10 分钟扫一遍</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="lesson">
+    <h3><span class="num">B</span>三个必须养成的答题习惯</h3>
+    <div class="callout exam">
+      <span class="tag">考试技巧</span>
+      <b>1. 先写符号约定。</b>“Let $w_{ji}$ denote the weight from unit $i$ to unit $j$, and $d_j=\partial E/\partial s_j$.”
+      这一句话能救回大量因为符号不同而被判错的分。
+    </div>
+    <div class="callout exam">
+      <span class="tag">考试技巧</span>
+      <b>2. 每一步只做一件事，并写出来。</b>手算反向传播时，一行只写一个量（$u_j$、$y_j$、$dz_k$、$du_j$），
+      中间结果保留 4 位小数。考官给的是过程分。
+    </div>
+    <div class="callout exam">
+      <span class="tag">考试技巧</span>
+      <b>3. 答案要有单位与判断。</b>“$H(p)=2.838$ nats”“KL $\ge 0$，这里两者不相等所以严格大于 0”
+      —— 一句话解释往往就是那 1 分。
+    </div>
+
+    <div class="enbox">
+      <div class="tag">考场英文 · 开场三句</div>
+      <p>“I denote the weight from unit <i>i</i> to unit <i>j</i> by $w_{ji}$, the bias by $b_j$, and the pre-activation by $s_j$.”</p>
+      <p>“Using the chain rule, the error signal at unit <i>j</i> is $d_j=\partial E/\partial s_j$.”</p>
+      <p>“Since the data are linearly separable, the perceptron converges in a finite number of steps.”</p>
+      <p class="zh">中文意思：先声明符号 → 说明用了链式法则 → 引用定理。三句话覆盖了 80% 的手算题开头。</p>
+    </div>
+  </div>
+
+  <div class="lesson">
+    <h3><span class="num">C</span>术语怎么背才不忘</h3>
+    <p>不要背中文翻译，背「<b>英文词 → 一个画面 → 一句用途</b>」三件套。比如：</p>
+    <table class="grid">
+      <thead><tr><th style="width:26%">英文</th><th style="width:30%">画面</th><th>一句用途</th></tr></thead>
+      <tbody>
+        <tr><td><b>backpropagation</b></td><td>误差像水一样从输出往回渗</td><td>算每个权重该往哪调</td></tr>
+        <tr><td><b>vanishing gradient</b></td><td>越往回渗水越少，最后干了</td><td>深层网络学不动的原因</td></tr>
+        <tr><td><b>overfitting</b></td><td>把练习册答案背下来，换题就崩</td><td>训练好、测试差</td></tr>
+        <tr><td><b>KL divergence</b></td><td>用错的密码本多花的字节数</td><td>衡量两个分布差多少</td></tr>
+      </tbody>
+    </table>
+    <p>每章末尾的术语表就是这个格式。背的时候<b>出声念英文</b>，考试时才写得出来。</p>
+  </div>
+
+  <div class="lesson">
+    <h3><span class="num">D</span>三种复习路线</h3>
+    <div class="glance">
+      <div>
+        <h5>路线 1 · 只剩一晚（约 4 小时）</h5>
+        每章只读「讲解单元」的前两段 + 看 LAB + 做「易」练习；然后做模拟卷 ①。放弃推导，保住计算题。
+      </div>
+      <div>
+        <h5>路线 2 · 有两天（约 10 小时）</h5>
+        第一天：第 1–6 章完整过，含所有例题；第二天：第 7–11 章 + 三套模拟卷，错题回看对应小节。
+      </div>
+    </div>
+    <p style="margin-top:12px">路线 3 · 想拿高分（一周）：每天两章，把「变种题」全部手写一遍，并自己给每章画一张一页纸的公式卡。</p>
+    <div class="callout note">
+      <span class="tag">关于答案</span>
+      所有答案默认折叠，是为了让你<b>先想再看</b>。侧栏有「展开本页全部答案」，考前快速扫读时用。
+      每章的「标记本章已掌握」会记在浏览器里，侧栏进度条实时更新。
+    </div>
+  </div>
+
+  <div class="lesson">
+    <h3><span class="num">E</span>课内资源在哪</h3>
+    <ul>
+      <li><b>讲义</b>：<span class="kbd">lectures/</span> 下 34 个 PDF（每讲 1 页版 + 4up 版）。</li>
+      <li><b>Tutorial 题目与解答</b>：<span class="kbd">tutorials/</span>（Week 2–9）。</li>
+      <li><b>老师 Keynote 答案</b>：<span class="kbd">ans/Tut1.html … Tut5.html</span>，公式与表格是原始截图，答案数值以它为准。</li>
+    </ul>
+    <p>手册里的每个数字都用程序重算过；若与老师原图有出入，<b>以原图为准</b>，并把差异记在术语表旁边。</p>
+  </div>
+
+  <div class="chnav">
+    <a href="#ch1"><small>下一章</small>01 · 神经元与网络的基本零件 →</a>
+  </div>
+</section>

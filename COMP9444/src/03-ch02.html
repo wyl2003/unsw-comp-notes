@@ -1,0 +1,285 @@
+<section class="chapter" id="ch2">
+  <header class="chapter-head">
+    <div class="kicker">模块 02 · Lecture 1c · Tutorial 1 Q1–Q2</div>
+    <h2>感知机与学习算法</h2>
+    <p class="lead">
+      感知机是「最早的神经网络」，也是本课程<b>手算题的重灾区</b>：给你三个点、一组初始权重，
+      让你一步一步更新，最后写出权重的变化表。这一章把几何直觉、更新规则、收敛条件和 XOR 反例一次讲完。
+    </p>
+    <div class="glance">
+      <div><h5>考试怎么考</h5>手工构造一个能分开数据的感知机；追踪学习算法（给表格）；判断是否线性可分；证明 XOR 不可分。</div>
+      <div><h5>你需要先会</h5>直线方程 $w_0+w_1x+w_2y=0$、点积、符号判断。</div>
+    </div>
+    <div class="minitoc">
+      <a href="#s2-1">2.1 它其实是一条直线</a><a href="#s2-2">2.2 更新规则从哪来</a>
+      <a href="#s2-3">2.3 完整手算（12 步）</a><a href="#s2-4">2.4 什么时候保证停下</a>
+      <a href="#s2-5">2.5 构造题与 XOR</a>
+    </div>
+  </header>
+
+  <div class="lesson" id="s2-1">
+    <h3><span class="num">2.1</span>感知机：用一条直线把平面切成两半</h3>
+    <p>
+      感知机就是一个「不弯曲」的神经元：激活函数是阶跃函数，输出只有 $+1$ 和 $-1$ 两种。
+    </p>
+    <div class="mathbox">
+      <div class="cap">感知机（perceptron）</div>
+      $$s=w_0+\sum_{i=1}^{n}w_ix_i,\qquad y=\begin{cases}+1,& s\gt 0\\ -1,& s\le 0\end{cases}$$
+    </div>
+    <p>
+      $s=0$ 这个方程在二维平面上是<b>一条直线</b>，在 $n$ 维空间里是一个<b>超平面</b>（hyperplane）。
+      感知机的全部本领，就是选一条直线，把 $+1$ 的点放一边、$-1$ 的点放另一边。
+    </p>
+    <div class="callout note">
+      <span class="tag">几何记忆</span>
+      权重向量 $(w_1,w_2)$ 是这条直线的<b>法向量</b>，它指向 $+1$ 那一侧。
+      $w_0$ 决定直线离原点多远：$w_0$ 越大，直线越往负方向平移。
+    </div>
+    <p>所以「训练感知机」= 慢慢转动、平移这条直线，直到所有点都在正确的一侧。下一节的 LAB 就是这件事的动画。</p>
+  </div>
+
+  <div class="lesson" id="s2-2">
+    <h3><span class="num">2.2</span>更新规则：错了就往正确方向推一把</h3>
+    <p>规则非常朴素：<b>只看分错的点</b>，把它往正确的一侧推。</p>
+    <div class="mathbox">
+      <div class="cap">感知机学习规则（perceptron learning rule）</div>
+      $$w \leftarrow w+\eta\,\frac{t-y}{2}\,x,\qquad x=(1,x_1,\dots,x_n)$$
+    </div>
+    <table class="sym">
+      <tr><th>$t$</th><td>目标标签（target），$+1$ 或 $-1$。</td></tr>
+      <tr><th>$y$</th><td>当前预测，$+1$ 或 $-1$。</td></tr>
+      <tr><th>$\eta$</th><td>学习率（learning rate），控制每步走多大。</td></tr>
+      <tr><th>$\frac{t-y}{2}$</th><td>只有三种取值：$0$（对了，不动）、$+1$（该是正却判负）、$-1$（该是负却判正）。</td></tr>
+    </table>
+    <p>
+      所以每次更新，实际上是<b>加上或减去一整个 $x$（再乘 $\eta$）</b>。
+      为什么除以 2？因为课件用的标签是 $\pm1$，$t-y=\pm2$；除以 2 后步长正好是 $\eta\cdot x$，
+      这与课件表格「$\eta=1$ 时每步改变 1」完全一致。<b>答题时先声明你的约定</b>，避免符号争议。
+    </p>
+    <div class="callout why">
+      <span class="tag">为什么这样就能收敛</span>
+      分错时，更新后的 $s'$ 会变化 $\eta\frac{t-y}{2}\,(x\cdot x)$。因为 $x\cdot x\gt 0$，
+      这个变化的方向恰好让 $s'$ 朝正确的符号移动。每次错误都换来一次「往对的方向挪」，所以只要存在一条完美直线，就一定能挪到。
+    </div>
+    <div class="callout trap">
+      <span class="tag">易错</span>
+      更新时用的是<b>更新前</b>的预测 $y$。同一轮里刚更新过权重，下一个点要用<b>新权重</b>重新算 $s$。
+      这两句话是很多人表格算错的原因。
+    </div>
+  </div>
+
+  <div class="lesson" id="s2-3">
+    <h3><span class="num">2.3</span>把 12 步完整算一遍（Tutorial 1 Q2）</h3>
+    <p>数据：$a=(0,1)\to-1$，$b=(2,0)\to-1$，$c=(1,1)\to+1$。初始 $w=(-1.5,\,0,\,2)$，$\eta=1$，按 $a\to b\to c$ 循环。</p>
+    <div class="viz" data-viz="pta">
+      <div class="viz-head">
+        <span class="lab">LAB 03</span><h5>看分界线一步步转到位</h5>
+        <span class="hint">可换 η / 单步 / 播放</span>
+      </div>
+      <div class="viz-body"></div>
+      <div class="viz-note">
+        红圈＝当前处理的点，外圈变色表示「这一步更新了」还是「判定正确、跳过」。注意第 8 步：直线已经差不多对了，
+        但 $b$ 又跑到错误一侧，于是被拉回来 —— 这就是感知机典型的「来回修」。
+      </div>
+    </div>
+
+    <table class="grid">
+      <thead><tr><th>步</th><th class="num">w₀</th><th class="num">w₁</th><th class="num">w₂</th><th>点</th><th class="num">s</th><th>动作</th><th>更新后 (w₀,w₁,w₂)</th></tr></thead>
+      <tbody>
+        <tr><td>1</td><td class="num">−1.5</td><td class="num">0</td><td class="num">2</td><td>a (0,1) −1</td><td class="num">+0.5</td><td>Sub</td><td>(−2.5, 0, 1)</td></tr>
+        <tr><td>2</td><td class="num">−2.5</td><td class="num">0</td><td class="num">1</td><td>b (2,0) −1</td><td class="num">−2.5</td><td>—</td><td>(−2.5, 0, 1)</td></tr>
+        <tr><td>3</td><td class="num">−2.5</td><td class="num">0</td><td class="num">1</td><td>c (1,1) +1</td><td class="num">−1.5</td><td>Add</td><td>(−1.5, 1, 2)</td></tr>
+        <tr><td>4</td><td class="num">−1.5</td><td class="num">1</td><td class="num">2</td><td>a (0,1) −1</td><td class="num">+0.5</td><td>Sub</td><td>(−2.5, 1, 1)</td></tr>
+        <tr><td>5</td><td class="num">−2.5</td><td class="num">1</td><td class="num">1</td><td>b (2,0) −1</td><td class="num">−0.5</td><td>—</td><td>(−2.5, 1, 1)</td></tr>
+        <tr><td>6</td><td class="num">−2.5</td><td class="num">1</td><td class="num">1</td><td>c (1,1) +1</td><td class="num">−0.5</td><td>Add</td><td>(−1.5, 2, 2)</td></tr>
+        <tr><td>7</td><td class="num">−1.5</td><td class="num">2</td><td class="num">2</td><td>a (0,1) −1</td><td class="num">+0.5</td><td>Sub</td><td>(−2.5, 2, 1)</td></tr>
+        <tr><td>8</td><td class="num">−2.5</td><td class="num">2</td><td class="num">1</td><td>b (2,0) −1</td><td class="num">+1.5</td><td>Sub</td><td>(−3.5, 0, 1)</td></tr>
+        <tr><td>9</td><td class="num">−3.5</td><td class="num">0</td><td class="num">1</td><td>c (1,1) +1</td><td class="num">−2.5</td><td>Add</td><td>(−2.5, 1, 2)</td></tr>
+        <tr><td>10</td><td class="num">−2.5</td><td class="num">1</td><td class="num">2</td><td>a (0,1) −1</td><td class="num">−0.5</td><td>—</td><td>(−2.5, 1, 2)</td></tr>
+        <tr><td>11</td><td class="num">−2.5</td><td class="num">1</td><td class="num">2</td><td>b (2,0) −1</td><td class="num">−0.5</td><td>—</td><td>(−2.5, 1, 2)</td></tr>
+        <tr class="hi"><td>12</td><td class="num">−2.5</td><td class="num">1</td><td class="num">2</td><td>c (1,1) +1</td><td class="num">+0.5</td><td>—</td><td>(−2.5, 1, 2)</td></tr>
+      </tbody>
+    </table>
+    <div class="callout note">
+      <span class="tag">怎么读这张表</span>
+      共 9 次更新、12 次访问（3 遍 + 第 4 遍的前 3 个点，第 4 遍全部正确 ⇒ 停止）。
+      最终 <b>$w=(-2.5,\,1,\,2)$</b>，即直线 $-2.5+x_1+2x_2=0$。验算：$a:-0.5$，$b:-0.5$，$c:+0.5$，符号全对。
+    </div>
+    <div class="callout trap">
+      <span class="tag">考场最常丢分的地方</span>
+      只写到第 9 步就停。判定「收敛」必须<b>再完整扫一遍三个点且全部正确</b>，所以表格要写到第 12 行。
+      写的时候在表下补一句 “No further updates occur, hence the algorithm terminates.”
+    </div>
+  </div>
+
+  <div class="lesson" id="s2-4">
+    <h3><span class="num">2.4</span>它什么时候保证停下来</h3>
+    <p><b>感知机收敛定理</b>：若数据线性可分，且间隔为 $\gamma$、样本半径 $R$，则更新次数不超过 $(R/\gamma)^2$，与初始权重无关。</p>
+    <p>反过来：<b>若数据线性不可分，算法永远不收敛</b>，会在两个错误之间无限循环。这是考试最爱问的「判断 + 解释」。</p>
+    <div class="callout why">
+      <span class="tag">为什么与 η 无关</span>
+      $\eta$ 只改变权重向量的<b>长度</b>，不改变方向。而分类只取决于 $s$ 的符号，把 $w$ 整体放大或缩小不影响符号。
+      所以 $\eta$ 只影响收敛速度（步数），不影响是否收敛。
+    </div>
+    <p>感知机的另一个毛病：它找到的分界线<b>不是唯一的</b>。数据可分时，任何一条能分开的线都算对，算法停在哪条取决于初始值。
+    这正是后面「支持向量机」和「逻辑回归 + 正则」想解决的问题。</p>
+  </div>
+
+  <div class="lesson" id="s2-5">
+    <h3><span class="num">2.5</span>构造题：手工挑一组权重</h3>
+    <p>
+      题目常给三个点，让你「用平面几何的方法」选 $w_0,w_1,w_2$。做法固定三步：
+    </p>
+    <ol>
+      <li>把点画出来，肉眼判断哪一条线能分开。</li>
+      <li>写出这条线的方程，例如 $x_1+2x_2-2=0$。</li>
+      <li>决定哪一侧是 $+1$：代入一个点看 $s$ 的符号，反了就整体乘 $-1$。</li>
+    </ol>
+    <div class="mathbox eq">
+      <div class="cap">Tutorial 1 Q1 的一组解</div>
+      $$w=(-2,\;0.5,\;1.8)\quad\Longrightarrow\quad s=-2+0.5x_1+1.8x_2$$
+    </div>
+    <table class="grid">
+      <thead><tr><th>点</th><th class="num">s</th><th>符号</th><th>目标</th><th>结果</th></tr></thead>
+      <tbody>
+        <tr><td>a (0,1)</td><td class="num">−0.2</td><td>−</td><td>−1</td><td>✓</td></tr>
+        <tr><td>b (2,0)</td><td class="num">−1.0</td><td>−</td><td>−1</td><td>✓</td></tr>
+        <tr><td>c (1,1)</td><td class="num">+0.3</td><td>+</td><td>+1</td><td>✓</td></tr>
+      </tbody>
+    </table>
+    <p>注意：答案<b>不唯一</b>。只要三个符号对，任何一组都拿满分。答题时最好写一句 “Any weights satisfying these inequalities are acceptable.”</p>
+    <p>而 XOR 就不行：$(0,0),(1,1)\to 0$ 与 $(0,1),(1,0)\to 1$ 交错分布，任何一条直线都只能切出一种颜色。</p>
+  </div>
+
+  <hr class="soft">
+  <h3 style="font-size:1.05rem;margin:0 0 4px">例题（课内原题）</h3>
+
+  <article class="card eg io">
+    <h4><span class="chip eg">例题 1</span>手工构造感知机</h4>
+    <div class="q">
+      <p>为 $a(0,1)\to-1$，$b(2,0)\to-1$，$c(1,1)\to+1$ 选一组 $w_0,w_1,w_2$，使感知机正确分类。</p>
+      <span class="en">Construct by hand a perceptron that correctly classifies the three points.</span>
+    </div>
+    <button class="reveal">显示答案 ▼</button>
+    <div class="ans">
+      <p>三个点里 $c$ 在左上，$a,b$ 在下面。取一条把 $c$ 单独隔开的线，例如过 $(0.6,0)$ 和 $(0,0.55)$ 的线，
+      其方程约为 $0.5x_1+1.8x_2-2=0$，即 $s=-2+0.5x_1+1.8x_2$。</p>
+      <p>验算：$a\to-0.2$，$b\to-1.0$，$c\to+0.3$，符号为 $-, -, +$，与目标一致。</p>
+      <div class="res">$w=(-2,\;0.5,\;1.8)$</div>
+      <p>把三个点画在纸上、用尺子比一条线，再读出截距和斜率，是考场上最快的方法。</p>
+    </div>
+  </article>
+
+  <article class="card eg io">
+    <h4><span class="chip eg">例题 2</span>追踪学习算法（12 步全表）</h4>
+    <div class="q">
+      <p>同数据，$\eta=1.0$，$w=(-1.5,0,2)$。逐步更新直到全部分类正确，写出每步后的权重。</p>
+      <span class="en">Demonstrate the perceptron learning algorithm, indicating the new weights at the end of each step.</span>
+    </div>
+    <button class="reveal">显示答案 ▼</button>
+    <div class="ans">
+      <p>完整表格见 2.3 节。关键节点：</p>
+      <div class="step"><b>第 1 步</b><div>$s=+0.5$，$a$ 应为 $-1$，故 $w\leftarrow w-x=( -2.5,0,1)$。</div></div>
+      <div class="step"><b>第 8 步</b><div>$s=+1.5$，$b$ 应为 $-1$，故再减一次 $x=(1,2,0)$，得 $(-3.5,0,1)$。</div></div>
+      <div class="step"><b>第 9 步</b><div>$s=-2.5$，$c$ 应为 $+1$，加 $x=(1,1,1)$，得 $(-2.5,1,2)$。</div></div>
+      <div class="step"><b>第 10–12 步</b><div>三个点全对，无更新 ⇒ 算法终止。</div></div>
+      <div class="res">$w=(-2.5,\;1,\;2)$，共 9 次更新</div>
+    </div>
+  </article>
+
+  <h3 style="font-size:1.05rem;margin:26px 0 4px">练习</h3>
+
+  <article class="card easy io">
+    <h4><span class="chip easy">易</span>练习 1 · 判断类别</h4>
+    <div class="q"><p>感知机 $w=(1,-2,1)$，判断 $(3,1)$ 与 $(1,2)$ 的类别。</p></div>
+    <button class="reveal">显示答案 ▼</button>
+    <div class="ans">
+      <p>$(3,1)$：$s=1-2(3)+1(1)=-4\lt 0\Rightarrow y=-1$。</p>
+      <p>$(1,2)$：$s=1-2+2=1\gt 0\Rightarrow y=+1$。</p>
+    </div>
+  </article>
+
+  <article class="card mid io">
+    <h4><span class="chip mid">中</span>练习 2 · 做一次更新</h4>
+    <div class="q">
+      <p>当前 $w=(0,1,-1)$，样例 $x=(2,1)$，$t=-1$，$\eta=0.5$。写出更新后的权重，并说明几何上发生了什么。</p>
+    </div>
+    <button class="reveal">显示答案 ▼</button>
+    <div class="ans">
+      <p>先算 $s=0+2-1=+1\Rightarrow y=+1$，与 $t=-1$ 不符，需要更新。</p>
+      <p>$\eta\frac{t-y}{2}=0.5\times\frac{-2}{2}=-0.5$，故 $w\leftarrow w-0.5(1,2,1)=(-0.5,\,0,\,-1.5)$。</p>
+      <div class="res">$w=(-0.5,\,0,\,-1.5)$</div>
+      <p>几何：分界线被推着远离这个点，使它在下一轮落到负侧。更新方向沿输入向量 $x$，步长与 $\eta$ 成正比。</p>
+    </div>
+  </article>
+
+  <article class="card hard io">
+    <h4><span class="chip hard">难</span>练习 3 · 证明 XOR 不可分</h4>
+    <div class="q">
+      <p>证明不存在 $w_0,w_1,w_2$ 使单层感知机能实现 XOR：$(0,0),(1,1)\to-1$，$(0,1),(1,0)\to+1$。</p>
+    </div>
+    <button class="reveal">显示答案 ▼</button>
+    <div class="ans">
+      <p>四个约束：</p>
+      <div class="step"><b>(0,0)</b><div>$w_0\le 0$</div></div>
+      <div class="step"><b>(1,1)</b><div>$w_0+w_1+w_2\le 0$</div></div>
+      <div class="step"><b>(0,1)</b><div>$w_0+w_2\gt 0$</div></div>
+      <div class="step"><b>(1,0)</b><div>$w_0+w_1\gt 0$</div></div>
+      <p>后两式相加：$2w_0+w_1+w_2\gt 0$。由第一式 $w_0\le0$，由第二式 $w_1+w_2\le -w_0$，于是
+      $2w_0+w_1+w_2\le 2w_0-w_0=w_0\le 0$，与 $\gt 0$ 矛盾。</p>
+      <div class="res">矛盾 ⇒ XOR 线性不可分</div>
+      <p>直觉版答案：XOR 的两个正类在对角线上，两个负类在另一条对角线上，任何直线都切不开。</p>
+      <div class="enbox">
+        <div class="tag">英文写法</div>
+        <p>“Summing the two positivity constraints gives $2w_0+w_1+w_2\gt 0$, while the two negativity constraints imply $2w_0+w_1+w_2\le w_0\le 0$ — a contradiction.”</p>
+      </div>
+    </div>
+  </article>
+
+  <h3 style="font-size:1.05rem;margin:26px 0 4px">变种题</h3>
+
+  <article class="card var io">
+    <h4><span class="chip var">变种 1</span>把 η 改成 0.5</h4>
+    <div class="q"><p>例题 2 若 $\eta=0.5$（其余不变），最终权重是多少？步数变了吗？</p></div>
+    <button class="reveal">显示答案 ▼</button>
+    <div class="ans">
+      <p>重跑：仍是第 9 次更新后收敛（第 10–12 个点全对），最终 $w=(-2.0,\,1.0,\,1.5)$，共 9 次更新。</p>
+      <div class="res">$w=(-2,\,1,\,1.5)$</div>
+      <p>要点：$\eta$ 缩小后轨迹<b>不是</b>简单等比例缩放 —— 落点变了，后面「哪个点会错」的顺序也跟着变。
+      $\eta$ 只影响速度与解的位置，不影响「可分 ⇒ 有限步收敛」这个结论。</p>
+    </div>
+  </article>
+
+  <article class="card var io">
+    <h4><span class="chip var">变种 2</span>用感知机实现 AND / OR</h4>
+    <div class="q"><p>写出实现 2 输入 AND 与 OR 的权重（输入 $0/1$，输出 $1$ 为正类）。</p></div>
+    <button class="reveal">显示答案 ▼</button>
+    <div class="ans">
+      <p><b>AND</b>：$w=(-1.5,\,1,\,1)$。只有 $(1,1)$ 时 $s=0.5\gt 0$。</p>
+      <p><b>OR</b>：$w=(-0.5,\,1,\,1)$。任一个为 1 时 $s=0.5\gt 0$；只有 $(0,0)$ 时 $s=-0.5\le0$。</p>
+      <div class="res">AND $(-1.5,1,1)$；OR $(-0.5,1,1)$</div>
+      <p>把两个感知机叠起来就能做 XOR：$x_1$ OR $x_2$ 减去 $x_1$ AND $x_2$ —— 这正是「加隐藏层」的动机。</p>
+    </div>
+  </article>
+
+  <details class="gloss">
+    <summary>本章术语表</summary>
+    <div class="body">
+      <dl>
+        <dt>perceptron<em>感知机</em></dt><dd>线性加权和 + 阶跃激活的二分类器。</dd>
+        <dt>hyperplane / decision boundary<em>超平面 / 决策边界</em></dt><dd>$s=0$ 的点集，把空间分成两侧。</dd>
+        <dt>linearly separable<em>线性可分</em></dt><dd>存在一个超平面能完全分开两类。</dd>
+        <dt>perceptron learning rule<em>感知机学习规则</em></dt><dd>$w\leftarrow w+\eta\frac{t-y}{2}x$，仅错分时更新。</dd>
+        <dt>learning rate<em>学习率</em></dt><dd>每步更新幅度，只影响收敛速度。</dd>
+        <dt>convergence theorem<em>收敛定理</em></dt><dd>线性可分时有限步收敛，上界约 $(R/\gamma)^2$。</dd>
+        <dt>margin $\gamma$<em>间隔</em></dt><dd>数据点到分界面的最小距离，越大越容易学。</dd>
+      </dl>
+    </div>
+  </details>
+
+  <label class="done"><input type="checkbox" data-id="ch2"> 标记本章已掌握</label>
+  <div class="chnav">
+    <a href="#ch1"><small>上一章</small>← 01 · 神经元与基本零件</a>
+    <a class="next" href="#ch3"><small>下一章</small>03 · 反向传播 →</a>
+  </div>
+</section>

@@ -1,0 +1,293 @@
+<section class="chapter" id="ch8">
+  <header class="chapter-head">
+    <div class="kicker">模块 08 · Lecture 5 · Tutorial 7</div>
+    <h2>卷积网络</h2>
+    <p class="lead">
+      全连接层看一张 84×84 的图，第一层就要 $84^2\times$ 单元数 个权重 —— 参数爆炸，还把「相邻像素」的空间结构扔掉了。
+      卷积用两招解决：<b>局部连接</b>（每个单元只看一小块）和 <b>权重共享</b>（同一个卷积核扫全图）。
+      本章把卷积的尺寸与参数算到能应付任何考题，再用课内那道 Mnih 网络的题完整走一遍。
+    </p>
+    <div class="glance">
+      <div><h5>考试怎么考</h5>给卷积层超参数算输出尺寸、神经元数、连接数、独立参数；解释权重共享为什么能降参数；比较 ResNet 与 DenseNet。</div>
+      <div><h5>你需要先会</h5>矩阵/张量形状、向下取整、乘法。</div>
+    </div>
+    <div class="minitoc">
+      <a href="#s8-1">8.1 卷积在算什么</a><a href="#s8-2">8.2 三个公式</a>
+      <a href="#s8-3">8.3 池化与感受野</a><a href="#s8-4">8.4 Mnih 网络全解</a>
+      <a href="#s8-5">8.5 初始化 / BN / 残差</a>
+    </div>
+  </header>
+
+  <div class="lesson" id="s8-1">
+    <h3><span class="num">8.1</span>卷积 = 拿一个小模板在图上滑动</h3>
+    <p>
+      一个 $3\times3$ 的核（filter / kernel）盖在图像的一小块上，逐元素相乘再求和，得到一个数；然后按步长（stride）挪到下一块。
+      滑完一遍就得到一张<b>特征图</b>（feature map）。
+    </p>
+    <div class="mathbox">
+      <div class="cap">二维离散卷积（深度学习里实际是互相关）</div>
+      $$y_{ij}=\sum_{m=0}^{M-1}\sum_{n=0}^{N-1}w_{mn}\,x_{i\cdot s+m,\;j\cdot s+n}+b$$
+    </div>
+    <table class="sym">
+      <tr><th>$M\times N$</th><td>核的高与宽（如 $3\times3$、$8\times8$）。</td></tr>
+      <tr><th>$s$</th><td>步长 stride：每次挪几格。$s\gt 1$ 会降采样。</td></tr>
+      <tr><th>$L$</th><td>输入通道数（灰度图 $L=1$，RGB $L=3$，中间层常见 16/32/256）。</td></tr>
+      <tr><th>$b$</th><td>每个核一个 bias，所以「每个 filter 的权重数」= $1+MNL$。</td></tr>
+    </table>
+    <div class="callout why">
+      <span class="tag">两个关键设计</span>
+      <b>局部连接</b>：每个输出只依赖输入的 $M\times N$ 区域 —— 图像里邻近像素才相关。
+      <b>权重共享</b>：同一个核在整张图上复用 —— 一只猫出现在左上角还是右下角，检测它的模板应该一样。
+      这两条把参数量从「像素数 × 单元数」降到「核大小 × 通道数」，还自带平移等变性。
+    </div>
+    <div class="callout note">
+      <span class="tag">术语澄清</span>
+      数学上的卷积会把核翻转 180°，深度学习框架（以及本课程）用的其实是<b>互相关</b>（不翻转）。
+      答题时写 “cross-correlation, as implemented in deep learning frameworks” 即可，不影响任何计算。
+    </div>
+  </div>
+
+  <div class="lesson" id="s8-2">
+    <h3><span class="num">8.2</span>三个公式，覆盖所有计算题</h3>
+    <div class="mathbox">
+      <div class="cap">输出边长（无 padding 或 padding P）</div>
+      $$J'=\left\lfloor\frac{J+2P-M}{s}\right\rfloor+1$$
+      <div class="cap" style="margin-top:10px">神经元数 / 连接数 / 独立参数</div>
+      $$\text{neurons}=J'\times K'\times L',\qquad
+        \text{connections}=\text{neurons}\times(1+MNL)$$
+      $$\text{parameters}=L'\times(1+MNL)$$
+    </div>
+    <p>注意区分三个容易混的量：</p>
+    <table class="grid">
+      <thead><tr><th>量</th><th>含义</th><th>为什么考</th></tr></thead>
+      <tbody>
+        <tr><td>每个 filter 的权重</td><td>$1+MNL$</td><td>含 bias，容易漏</td></tr>
+        <tr><td>连接数 connections</td><td>神经元数 × 每个神经元的输入数</td><td>衡量计算量，<b>不是</b>参数量</td></tr>
+        <tr><td>独立参数</td><td>$L'\times(1+MNL)$</td><td>因为权重共享，等于「filter 数 × 每个 filter 的权重」</td></tr>
+      </tbody>
+    </table>
+    <div class="callout trap">
+      <span class="tag">最常见的错</span>
+      把 connections 当成 parameters。卷积层里同一种核被复用了几千次，参数只有一份，连接却有几千份 ——
+      这正是卷积「省参数」的全部秘密。
+    </div>
+
+    <div class="viz" data-viz="conv">
+      <div class="viz-head">
+        <span class="lab">LAB 11</span><h5>看着卷积核一格一格扫过去</h5>
+        <span class="hint">换核 / 播放 / 单步</span>
+      </div>
+      <div class="viz-body"></div>
+      <div class="viz-note">
+        输入是 6×6 的竖条，核是「竖直边缘检测器」。注意输出只有 4×4 —— 因为核不能越过边界，
+        每边少 2 格。换成「模糊」核，输出会变得平缓；换成「锐化」，边缘被放大。
+      </div>
+    </div>
+  </div>
+
+  <div class="lesson" id="s8-3">
+    <h3><span class="num">8.3</span>池化与感受野</h3>
+    <p><b>池化</b>（pooling）没有参数，只做降采样：$2\times2$ 最大池化把每个 $2\times2$ 块压成最大值，尺寸减半。</p>
+    <table class="grid">
+      <thead><tr><th>类型</th><th>做什么</th><th>作用</th></tr></thead>
+      <tbody>
+        <tr><td>max pooling</td><td>取块内最大值</td><td>保留最强响应，对小幅平移不敏感</td></tr>
+        <tr><td>average pooling</td><td>取平均</td><td>更平滑，常用在全局池化</td></tr>
+      </tbody>
+    </table>
+    <p>
+      <b>感受野</b>（receptive field）是一个输出单元在原始输入上「看到」的区域。堆两个 $3\times3$ 卷积（stride 1）的感受野是 $5\times5$，
+      三个是 $7\times7$ —— 这就是「用多层小核替代一个大核」的动机：参数更少（$3\times9=27$ vs $49$），非线性更多。
+    </p>
+    <div class="mathbox eq">
+      $$R_{\text{out}}=R_{\text{in}}+(M-1)\times\prod_{\text{前面各层的 stride}}s_i$$
+    </div>
+  </div>
+
+  <div class="lesson" id="s8-4">
+    <h3><span class="num">8.4</span>课内原题：Mnih 的 DQN 网络逐层算</h3>
+    <p>
+      网络描述：输入 $84\times84\times4$（四帧灰度图堆叠）；第一层 16 个 $8\times8$ 卷积、stride 4；第二层 32 个 $4\times4$ 卷积、stride 2；
+      然后 256 个全连接 ReLU；输出 18 个动作。无 padding。
+    </p>
+    <table class="grid">
+      <thead>
+        <tr><th>层</th><th class="num">每个 filter 权重</th><th class="num">输出边长</th><th class="num">神经元</th><th class="num">连接</th><th class="num">独立参数</th></tr>
+      </thead>
+      <tbody>
+        <tr><td>卷积 1（16×8×8, s=4, L=4）</td><td class="num">257</td><td class="num">20</td><td class="num">6 400</td><td class="num">1 644 800</td><td class="num">4 112</td></tr>
+        <tr><td>卷积 2（32×4×4, s=2, L=16）</td><td class="num">257</td><td class="num">9</td><td class="num">2 592</td><td class="num">666 144</td><td class="num">8 224</td></tr>
+        <tr><td>全连接（256 单元）</td><td class="num">2 593</td><td class="num">—</td><td class="num">256</td><td class="num">663 808</td><td class="num">663 808</td></tr>
+        <tr><td>输出（18 个动作）</td><td class="num">257</td><td class="num">—</td><td class="num">18</td><td class="num">4 626</td><td class="num">4 626</td></tr>
+        <tr class="hi"><td colspan="5"><b>合计</b></td><td class="num"><b>680 770</b></td></tr>
+      </tbody>
+    </table>
+    <p>逐步验算（考试就按这个顺序写）：</p>
+    <div class="ans show" style="border-top:0;margin-top:0">
+      <div class="step"><b>卷积 1</b><div>$1+8\times8\times4=257$；输出 $1+(84-8)/4=20$；神经元 $20^2\times16=6400$；连接 $6400\times257=1\,644\,800$；参数 $16\times257=4112$。</div></div>
+      <div class="step"><b>卷积 2</b><div>$1+4\times4\times16=257$；输出 $1+(20-4)/2=9$；神经元 $9^2\times32=2592$；连接 $2592\times257=666\,144$；参数 $32\times257=8224$。</div></div>
+      <div class="step"><b>全连接</b><div>每个神经元接收 2592 个输入 + 1 个 bias = 2593；256 个神经元 → 连接 = 参数 = $256\times2593=663\,808$。</div></div>
+      <div class="step"><b>输出</b><div>$18\times(256+1)=4626$。</div></div>
+      <div class="res">总计 $4112+8224+663808+4626=680\,770$ 个参数</div>
+    </div>
+    <div class="callout note">
+      <span class="tag">观察</span>
+      两个卷积层加起来只有 $12\,336$ 个参数，全连接层却有 $663\,808$ —— <b>卷积很省，全连接很贵</b>。
+      这也是后来用全局平均池化替代大全连接层的原因。
+    </div>
+  </div>
+
+  <div class="lesson" id="s8-5">
+    <h3><span class="num">8.5</span>训练深网络的三个配件</h3>
+    <p><b>权重初始化。</b>反向传播时梯度方差近似按层数连乘（课件的式子）：</p>
+    <div class="mathbox eq">
+      $$\mathrm{Var}\!\left[\frac{\partial}{\partial x}\right]\simeq\left(\prod_i G_i\,n_{(i+1)}\,\mathrm{Var}[w^{(i)}]\right)\mathrm{Var}\!\left[\frac{\partial}{\partial z}\right]$$
+    </div>
+    <p>
+      若每层的因子 $G_i n_{(i+1)}\mathrm{Var}[w^{(i)}]$ 都约等于 1，梯度方差就能保持稳定；否则指数级爆炸或消失。
+      Xavier 初始化取 $\mathrm{Var}(w)\approx 2/(n_{\text{in}}+n_{\text{out}})$，He 初始化取 $2/n_{\text{in}}$（配 ReLU）。
+    </p>
+    <p><b>批归一化（batch normalisation）。</b>对一个 mini-batch 内每个通道的激活做标准化，再学一个缩放和平移：</p>
+    <div class="mathbox eq">
+      $$\hat x_k=\frac{x_k-\mathrm{Mean}[x_k]}{\sqrt{\mathrm{Var}[x_k]}},\qquad y_k=\beta_k+\gamma_k\hat x_k$$
+    </div>
+    <p>$\beta,\gamma$ 是<b>可学习参数</b>（每个通道一组），由反向传播更新。好处：允许更大学习率、对初始化不敏感、有轻微正则效果。
+    推理时用训练阶段累积的滑动平均均值/方差。</p>
+    <p><b>残差 vs 稠密连接。</b></p>
+    <table class="grid">
+      <thead><tr><th></th><th>ResNet</th><th>DenseNet</th></tr></thead>
+      <tbody>
+        <tr><td>连接方式</td><td>跨过<b>一对</b>相邻层加一条 shortcut：$y=x+F(x)$</td><td>块内每一层都连接到<b>之前所有层</b>：$x_l=[x_0,\dots,x_{l-1}]$</td></tr>
+        <tr><td>学什么</td><td>学「残差」$F(x)$，即对前层输出的修正/补充细节</td><td>每层只加一小撮新特征（growth rate），特征复用</td></tr>
+        <tr><td>梯度</td><td>shortcut 提供恒等通路，缓解梯度消失</td><td>稠密短路让梯度直通早期层</td></tr>
+        <tr><td>代价</td><td>显存中等</td><td>特征图拼接，显存/带宽更大</td></tr>
+      </tbody>
+    </table>
+    <div class="callout exam">
+      <span class="tag">一句话答案</span>
+      “A residual network adds skip connections that bypass each pair of consecutive layers, so those layers learn a residual correction;
+      a dense network concatenates the outputs of all preceding layers within a block.”
+    </div>
+  </div>
+
+  <hr class="soft">
+  <h3 style="font-size:1.05rem;margin:0 0 4px">例题（课内原题）</h3>
+
+  <article class="card eg io">
+    <h4><span class="chip eg">例题 1</span>逐层计算 Mnih 网络（Tutorial 7 Q1）</h4>
+    <div class="q">
+      <p>对上述四层，分别求：① 每个 filter 的权重数（含 bias）；② 卷积层输出边长；③ 神经元数；④ 连接数；⑤ 独立参数。</p>
+      <span class="en">For each layer compute the weights per filter, the width and height, the neurons, the connections, and the independent parameters.</span>
+    </div>
+    <button class="reveal">显示答案 ▼</button>
+    <div class="ans">
+      <p>完整表格与逐步验算见 8.4 节。关键中间值：</p>
+      <div class="step"><b>卷积 1</b><div>257 / 20 / 6400 / 1 644 800 / 4112</div></div>
+      <div class="step"><b>卷积 2</b><div>257 / 9 / 2592 / 666 144 / 8224</div></div>
+      <div class="step"><b>全连接</b><div>2593 / — / 256 / 663 808 / 663 808</div></div>
+      <div class="step"><b>输出</b><div>257 / — / 18 / 4626 / 4626</div></div>
+      <div class="res">总参数 680 770</div>
+    </div>
+  </article>
+
+  <article class="card eg io">
+    <h4><span class="chip eg">例题 2</span>权重初始化（Tutorial 7 Q2）</h4>
+    <div class="q"><p>简述梯度消失/爆炸问题，以及权重初始化如何缓解。</p></div>
+    <button class="reveal">显示答案 ▼</button>
+    <div class="ans">
+      <p>反向传播时梯度是各层局部导数的<b>连乘</b>。若每层因子平均小于 1，梯度随深度指数衰减（消失）；大于 1 则指数增长（爆炸）。</p>
+      <p>初始化时让每层的 $\mathrm{Var}[w^{(i)}]$ 满足 $G_i\,n_{(i+1)}\mathrm{Var}[w^{(i)}]\approx1$，
+      则连乘的期望为 1，梯度方差在层间保持稳定。Xavier 用 $2/(n_{\text{in}}+n_{\text{out}})$，He 用 $2/n_{\text{in}}$（配 ReLU）。</p>
+      <div class="enbox">
+        <div class="tag">英文写法</div>
+        <p>“If weights are initialised so that $G_i n_{(i+1)}\mathrm{Var}[w^{(i)}]\approx 1$ for every layer, the variance of the gradients is preserved across layers instead of decaying or exploding exponentially.”</p>
+      </div>
+    </div>
+  </article>
+
+  <h3 style="font-size:1.05rem;margin:26px 0 4px">练习</h3>
+
+  <article class="card easy io">
+    <h4><span class="chip easy">易</span>练习 1 · 算输出尺寸</h4>
+    <div class="q"><p>$32\times32$ 输入，$5\times5$ 核，stride 1，padding 2。输出多大？参数量（16 个 filter，输入 3 通道）？</p></div>
+    <button class="reveal">显示答案 ▼</button>
+    <div class="ans">
+      <p>输出 $1+(32+4-5)/1=32$，即尺寸不变（same padding）。</p>
+      <p>每个 filter $1+5\times5\times3=76$，16 个共 $1216$ 个参数。</p>
+      <div class="res">$32\times32\times16$，1216 参数</div>
+    </div>
+  </article>
+
+  <article class="card mid io">
+    <h4><span class="chip mid">练习 2</span>哪种更省参数</h4>
+    <div class="q"><p>$56\times56\times64$ 的特征图，分别用「一个 $7\times7$ 卷积（64 输出）」和「三个 $3\times3$ 卷积（各 64 输出）」处理，比较参数量与感受野。</p></div>
+    <button class="reveal">显示答案 ▼</button>
+    <div class="ans">
+      <p>单个 $7\times7$：$64\times(1+7\times7\times64)=64\times3137=200\,768$。</p>
+      <p>三个 $3\times3$：每个 $64\times(1+9\times64)=64\times577=36\,928$，三个共 $110\,784$。</p>
+      <p>感受野都是 $7\times7$。所以「小核堆叠」省约 45% 参数，还多了两次非线性。</p>
+      <div class="res">200 768 vs 110 784</div>
+    </div>
+  </article>
+
+  <article class="card hard io">
+    <h4><span class="chip hard">练习 3</span>尺寸公式反推</h4>
+    <div class="q"><p>$224\times224$ 输入，$7\times7$ 核，stride 4。(a) 不加 padding，输出多大？(b) 要得到 $56\times56$ 至少需要多少 padding？(c) stride 2 时要得到 $112\times112$ 需要多少 padding？</p></div>
+    <button class="reveal">显示答案 ▼</button>
+    <div class="ans">
+      <p>(a) $\lfloor(224-7)/4\rfloor+1=\lfloor217/4\rfloor+1=54+1=55$（因为 $217/4=54.25$，向下取整是 54）。</p>
+      <p>(b) 要求 $\lfloor(217+2P)/4\rfloor=55$，即 $220\le217+2P\lt224$，解得 $1.5\leP\lt3.5$，所以 $P=2$ 或 $P=3$ 都行（$221/4=55.25$、$223/4=55.75$ 都取整到 55）。</p>
+      <p>(c) 要求 $\lfloor(217+2P)/2\rfloor=111$，即 $222\le217+2P\lt224$，解得 $2.5\leP\lt3.5$，只有 $P=3$（$223/2=111.5$）。</p>
+      <div class="res">55；$P=2$（或 3）；$P=3$</div>
+      <p>要点：向下取整让 padding 常有一小段「都行」的区间，答案给一个可行值即可，但代入过程要写清楚。</p>
+    </div>
+  </article>
+
+  <h3 style="font-size:1.05rem;margin:26px 0 4px">变种题</h3>
+
+  <article class="card var io">
+    <h4><span class="chip var">变种 1</span>把卷积换成全连接</h4>
+    <div class="q"><p>Mnih 网络第一层若改成全连接（输出同样的 6400 个单元），参数量是多少？倍数？</p></div>
+    <button class="reveal">显示答案 ▼</button>
+    <div class="ans">
+      <p>$84^2\times4=28\,224$ 个输入，$6400\times(28\,224+1)=180\,633\,600$。</p>
+      <p>是卷积版 4112 的约 <b>4.4 万倍</b>。这就是权重共享的威力。</p>
+      <div class="res">约 1.8 亿 vs 4112</div>
+    </div>
+  </article>
+
+  <article class="card var io">
+    <h4><span class="chip var">变种 2</span>BatchNorm 放在激活前还是后</h4>
+    <div class="q"><p>「conv → BN → ReLU」与「conv → ReLU → BN」有什么差别？</p></div>
+    <button class="reveal">显示答案 ▼</button>
+    <div class="ans">
+      <p>前者是标准做法：先归一化预激活，再让 ReLU 在零附近工作，避免大量单元落入负半轴死掉。</p>
+      <p>后者归一化的是 ReLU 之后的非负分布，均值不为 0，效果较差；但某些残差网络会用 pre-activation 变体（BN→ReLU→conv）。</p>
+    </div>
+  </article>
+
+  <details class="gloss">
+    <summary>本章术语表</summary>
+    <div class="body">
+      <dl>
+        <dt>convolution / cross-correlation<em>卷积 / 互相关</em></dt><dd>小核在输入上滑动做加权求和。</dd>
+        <dt>filter / kernel<em>卷积核</em></dt><dd>可学习的 $M\times N\times L$ 权重块。</dd>
+        <dt>feature map<em>特征图</em></dt><dd>一个卷积核扫完整张图的输出。</dd>
+        <dt>stride<em>步长</em></dt><dd>核每次移动的格数。</dd>
+        <dt>padding<em>填充</em></dt><dd>在边界补零以控制输出尺寸。</dd>
+        <dt>weight sharing<em>权重共享</em></dt><dd>同一核在全图复用，大幅减少参数。</dd>
+        <dt>pooling<em>池化</em></dt><dd>无参数的降采样，如 max pooling。</dd>
+        <dt>receptive field<em>感受野</em></dt><dd>一个输出单元对应的输入区域。</dd>
+        <dt>batch normalisation<em>批归一化</em></dt><dd>按 batch 统计量标准化激活，再学缩放平移。</dd>
+        <dt>residual connection<em>残差连接</em></dt><dd>$y=x+F(x)$，提供恒等通路。</dd>
+        <dt>dense block<em>稠密块</em></dt><dd>块内每层连接所有前层。</dd>
+      </dl>
+    </div>
+  </details>
+
+  <label class="done"><input type="checkbox" data-id="ch8"> 标记本章已掌握</label>
+  <div class="chnav">
+    <a href="#ch7"><small>上一章</small>← 07 · Softmax 与交叉熵</a>
+    <a class="next" href="#ch9"><small>下一章</small>09 · 自编码器、对抗样本、词向量 →</a>
+  </div>
+</section>

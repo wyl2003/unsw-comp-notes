@@ -1,0 +1,292 @@
+<section class="chapter" id="ch6">
+  <header class="chapter-head">
+    <div class="kicker">模块 06 · Lecture 3c / 4a · Tutorial 5 Q3–Q4</div>
+    <h2>隐藏层、线性塌缩与「表示」</h2>
+    <p class="lead">
+      隐藏层到底在做什么？一句话：<b>把输入换到一个新的坐标系里，让原本纠缠的类别变得容易切开。</b>
+      这一章先用课内那道著名的「隐藏单元空间」画图题建立直觉，再用矩阵证明：<b>如果激活是线性的，换坐标系这件事完全失效</b>——
+      无论叠多少层，都等价于一层。
+    </p>
+    <div class="glance">
+      <div><h5>考试怎么考</h5>给一个 6-2-3 网络和 one-hot 数据，在二维隐藏空间里画点与输出分割线；用矩阵证明线性多层可合并为单层。</div>
+      <div><h5>你需要先会</h5>矩阵乘法结合律、tanh/sigmoid 的形状、直线方程。</div>
+    </div>
+    <div class="minitoc">
+      <a href="#s6-1">6.1 隐藏空间</a><a href="#s6-2">6.2 画图题解法</a>
+      <a href="#s6-3">6.3 线性网络塌缩</a><a href="#s6-4">6.4 非线性为什么救得回来</a>
+    </div>
+  </header>
+
+  <div class="lesson" id="s6-1">
+    <h3><span class="num">6.1</span>隐藏层 = 一次坐标变换</h3>
+    <p>
+      输入是 6 维的 one-hot 向量（六个位置只有一个 1）。隐藏层只有 2 个单元，所以它必须把这 6 个点
+      <b>压到一张二维平面上</b>。这就是「表示」（representation）：每个输入变成一个二维坐标 $(h_1,h_2)$。
+    </p>
+    <div class="mathbox">
+      <div class="cap">前向（单个隐藏层）</div>
+      $$h=\tanh\!\left(W^{IH}I+b^H\right),\qquad o=\sigma\!\left(W^{HO}h+b^O\right)$$
+    </div>
+    <p>
+      因为输入是 one-hot，$W^{IH}I$ 实际上就是「取出 $W^{IH}$ 的第 $i$ 列」。所以第 $i$ 个输入在隐藏空间的坐标
+      只由第 $i$ 列权重决定 —— 训练就是在挪这 6 个点。
+    </p>
+    <p>输出层做的事更简单：对每个输出 $k$，方程</p>
+    <div class="mathbox eq">
+      $$w^{HO}_{k1}h_1+w^{HO}_{k2}h_2+b^O_k=0$$
+    </div>
+    <p>
+      是隐藏空间里的一条<b>直线</b>。直线一侧输出 $\gt 0.5$（判为 1），另一侧 $\lt 0.5$（判为 0）。
+      所以 3 个输出 = 3 条线，把平面切成若干块，每块对应一个 3 位编码。
+    </p>
+    <div class="callout why">
+      <span class="tag">为什么这很重要</span>
+      原本 6 个 6 维点需要很多超平面才分得开；换到 2 维之后，只要 3 条线。隐藏层干的事就是<b>把「难分」变成「易分」</b>。
+      这也是「深度学习 = 学表示」这句话的具体含义。
+    </div>
+  </div>
+
+  <div class="lesson" id="s6-2">
+    <h3><span class="num">6.2</span>画图题：六个点、三条线</h3>
+    <p>数据（6 个输入，3 位输出）：</p>
+    <table class="grid">
+      <thead><tr><th>项</th><th>输入</th><th>输出（bit₁bit₂bit₃）</th></tr></thead>
+      <tbody>
+        <tr><td>1</td><td>100000</td><td>000</td></tr>
+        <tr><td>2</td><td>010000</td><td>001</td></tr>
+        <tr><td>3</td><td>001000</td><td>010</td></tr>
+        <tr><td>4</td><td>000100</td><td>100</td></tr>
+        <tr><td>5</td><td>000010</td><td>101</td></tr>
+        <tr><td>6</td><td>000001</td><td>110</td></tr>
+      </tbody>
+    </table>
+    <p>题目要求：在二维隐藏空间里，① 画出每个输入对应的点；② 为每个输出画一条线，把该输出 $\gt 0.5$ 与 $\lt 0.5$ 的区域分开。</p>
+
+    <div class="callout note">
+      <span class="tag">解题三步</span>
+      <ol style="margin:6px 0 0;padding-left:1.2em">
+        <li>先列「每个输出为 1 的项」：输出 1 → {4,5,6}；输出 2 → {3,5,6}；输出 3 → {2,5,6}。</li>
+        <li>注意 <b>5 和 6 在三个输出里都是 1</b>，所以它们必须同时落在三条线的正侧 → 放在中央区域。</li>
+        <li>1 是 000，必须三条全是负侧 → 放在最外角。剩下的 2、3、4 分别只在一个输出上为 1，各放在对应线的外侧。</li>
+      </ol>
+    </div>
+
+    <figure style="margin:18px 0;text-align:center">
+      <img src="img/wk4_encoder.jpg" alt="隐藏单元空间：六个输入点与三条输出分割线"
+           style="max-width:340px;width:100%;border:1px solid var(--line);border-radius:10px;background:#fff;padding:8px">
+      <figcaption style="font-size:.78rem;color:var(--muted);margin-top:6px">
+        课内答案图（<span class="kbd">tutorials/wk4_encoder.jpg</span>）。数字 1–6 是六个输入在隐藏空间的落点，(1)(2)(3) 是三个输出的分割线。
+      </figcaption>
+    </figure>
+
+    <p>读图要点：</p>
+    <ul>
+      <li>三条线把平面切成 7 块，但只用得上 6 块（每块对应一个编码）。</li>
+      <li>每块里所有点的三位输出都相同 —— 这就是「线性可分」在隐藏空间里的样子。</li>
+      <li>点的<b>具体位置不唯一</b>：只要三条线能把 6 个点按编码分到正确的一侧，任何画法都对。考试给分看的是「线是否把该为 1 的点划到同侧」。</li>
+    </ul>
+    <div class="callout trap">
+      <span class="tag">常见扣分</span>
+      把线画成「穿过点」或「把点压在线上」。点必须严格在某一侧；另外别忘了每条线只属于<b>一个</b>输出，
+      不要试图用一条线同时表示两个输出。
+    </div>
+    <div class="enbox">
+      <div class="tag">英文写法</div>
+      <p>“Each output unit defines a line $w^{HO}_{k1}h_1+w^{HO}_{k2}h_2+b^O_k=0$ in hidden space; the output exceeds 0.5 on one side of this line.”</p>
+      <p>“Items 5 and 6 are positive for all three outputs, so they must lie in the region where all three half-planes overlap.”</p>
+    </div>
+  </div>
+
+  <div class="lesson" id="s6-3">
+    <h3><span class="num">6.3</span>线性传递函数：无论多少层都会塌成一层</h3>
+    <p>课件的记号（PyTorch 约定：输入在左，权重在右）：</p>
+    <div class="mathbox">
+      <div class="cap">线性激活（每个单元都乘常数 c）</div>
+      $$H=c\left(b^{H}+I\,W^{IH}\right)$$
+      $$O=c\left(b^{O}+H\,W^{HO}\right)$$
+      <div class="cap" style="margin-top:10px">代入</div>
+      $$O=c\left[b^{O}+c\left(b^{H}+I\,W^{IH}\right)W^{HO}\right]
+        =c\left[\underbrace{\left(b^{O}+c\,b^{H}W^{HO}\right)}_{b^{IO}}
+        +I\underbrace{\left(c\,W^{IH}W^{HO}\right)}_{W^{IO}}\right]$$
+    </div>
+    <p>
+      由矩阵乘法的<b>结合律</b>，括号可以随便挪，于是 $W^{IO}=c\,W^{IH}W^{HO}$、$b^{IO}=b^{O}+c\,b^{H}W^{HO}$。
+      一个没有隐藏层、权重为 $W^{IO}$、偏置为 $b^{IO}$ 的网络，输出<b>逐点完全相同</b>。
+    </p>
+    <div class="res" style="display:inline-block;margin:10px 0;padding:8px 12px;background:var(--green-soft);border:1px solid #cbe8d5;border-radius:7px">
+      多层同理：$W^{IO}=c^{L}W_1W_2\cdots W_L$ —— 只是矩阵连乘，仍然是一个矩阵。
+    </div>
+    <p>所以对「线性传递函数是否有用」的回答是：</p>
+    <ul>
+      <li><b>表达能力上完全没用</b>：任何线性深网都被一个线性单层网络等价替代。</li>
+      <li><b>唯一可能的收益</b>是参数共享/因式分解带来的参数节省（若中间层很窄），但这不是「深度」带来的表达力。</li>
+      <li>结论：<b>非线性是深度有意义的前提。</b>这就是为什么所有实用网络都在层间放 ReLU/tanh。</li>
+    </ul>
+
+    <div class="viz" data-viz="rank">
+      <div class="viz-head">
+        <span class="lab">LAB 09</span><h5>矩阵把平面压成什么</h5>
+        <span class="hint">拖四个元素 / 用预设</span>
+      </div>
+      <div class="viz-body"></div>
+      <div class="viz-note">
+        红色是单位正方形变换后的样子。点「压成一条线」：<b>det = 0、秩降为 1</b>，整张平面被压成一条线段，
+        不同输入变得无法区分 —— 信息永久丢失。线性层叠得再多，也只是把这张图再压一次。
+      </div>
+    </div>
+  </div>
+
+  <div class="lesson" id="s6-4">
+    <h3><span class="num">6.4</span>非线性怎样避免塌缩</h3>
+    <p>
+      关键差别在于：线性映射是<b>全局的、可交换的</b>（$W_2W_1$ 能被合并），而 ReLU 是<b>分段</b>的 ——
+      它按输入的正负把空间切成不同区域，每个区域用不同的线性映射。于是 $W_2\,\mathrm{ReLU}(W_1x)$ 无法写成一个矩阵，
+      网络就能表示「折起来」的函数。
+    </p>
+    <table class="grid">
+      <thead><tr><th></th><th>线性层堆叠</th><th>带非线性的堆叠</th></tr></thead>
+      <tbody>
+        <tr><td>复合结果</td><td>一个矩阵</td><td>分段线性 / 光滑的复杂函数</td></tr>
+        <tr><td>秩</td><td>$\le\min$ 各层宽度，容易塌缩</td><td>可保持高维表示</td></tr>
+        <tr><td>深度收益</td><td>0</td><td>指数级的区域数（每个 ReLU 折一次）</td></tr>
+        <tr><td>能否做 XOR</td><td>不能</td><td>能（一个隐藏层即可）</td></tr>
+      </tbody>
+    </table>
+    <div class="callout note">
+      <span class="tag">表示学习的三个词</span>
+      <b>manifold</b>（流形）：真实数据（图像、语音）其实躺在一个低维弯曲面上；
+      <b>embedding</b>（嵌入）：把离散对象映射成连续向量；
+      <b>disentanglement</b>（解耦）：理想表示中每个维度只控制一个变化因素。
+      这些是第 9 章词向量的伏笔。
+    </div>
+        <div class="callout why">
+      <span class="tag">为什么「窄」隐藏层仍然有用</span>
+      2 个隐藏单元只能表示二维表示，但已经足够把 6 个点按 3 位编码排布（上一节）。容量小不等于没用 ——
+      关键是表示是否让<b>后续的线性分类器</b>容易工作。
+    </div>
+  </div>
+
+  <hr class="soft">
+  <h3 style="font-size:1.05rem;margin:0 0 4px">例题（课内原题）</h3>
+
+  <article class="card eg io">
+    <h4><span class="chip eg">例题 1</span>隐藏单元动力学（Tutorial 5 Q3）</h4>
+    <div class="q">
+      <p>6 输入、2 隐藏单元（tanh）、3 输出（sigmoid）的全连接网络，在上表数据上训练成功。画出：① 每个输入在隐藏空间的点；② 每个输出的分割线。</p>
+      <span class="en">Draw a diagram showing, for each input, a point in hidden unit space, and for each output, a line dividing that space into regions where the output is greater/less than one half.</span>
+    </div>
+    <button class="reveal">显示答案 ▼</button>
+    <div class="ans">
+      <p>答案见 6.2 节的课内图。关键推理链：</p>
+      <div class="step"><b>输出 1</b><div>为 1 的项：4、5、6 → 这三个点必须在同一条线的同一侧。</div></div>
+      <div class="step"><b>输出 2</b><div>为 1 的项：3、5、6。</div></div>
+      <div class="step"><b>输出 3</b><div>为 1 的项：2、5、6。</div></div>
+      <div class="step"><b>交集</b><div>5、6 三项全为 1 → 必在三条线正侧的交叠区（图中中央）；1 三项全 0 → 最外角。</div></div>
+      <p>因为 tanh 的值域是 $(-1,1)$，所有点都落在正方形内部；sigmoid 的 0.5 阈值对应 $w\cdot h+b=0$，
+      所以每条分割线正好是隐藏空间里的一条直线。</p>
+      <div class="res">三点结论：点是输入列向量的 tanh；线是输出权重的零等值线；位置不唯一</div>
+    </div>
+  </article>
+
+  <article class="card eg io">
+    <h4><span class="chip eg">例题 2</span>线性传递函数（Tutorial 5 Q4）</h4>
+    <div class="q">
+      <p>(a) 一层隐藏层，写出输出 $O$ 关于 $W^{IH},W^{HO},b^H,b^O,I$ 的表达式，并证明存在等价的无穷隐藏层网络。<br>
+      (b) 推广到任意多层，说明线性传递函数是否有用。</p>
+    </div>
+    <button class="reveal">显示答案 ▼</button>
+    <div class="ans">
+      <p>$H=c(b^H+I W^{IH})$，$O=c(b^O+H W^{HO})$。</p>
+      <p>代入得 $O=c\big[(b^O+c\,b^H W^{HO})+I(c\,W^{IH}W^{HO})\big]$。</p>
+      <div class="res">$W^{IO}=c\,W^{IH}W^{HO}$，$b^{IO}=b^O+c\,b^H W^{HO}$</div>
+      <p>多层：不断代入，$W^{IO}=c^{L}W_1W_2\cdots W_L$，仍是一个矩阵，所以等价于单层。</p>
+      <p>(b) 结论：线性传递函数下，深度不增加任何表达能力；只有插入非线性，多层才有意义。</p>
+      <div class="enbox">
+        <div class="tag">英文写法</div>
+        <p>“By associativity of matrix multiplication, the composition of linear layers is itself a linear map, so any such network can be replaced by a single layer with $W^{IO}=c^{L}W_1\cdots W_L$.”</p>
+      </div>
+    </div>
+  </article>
+
+  <h3 style="font-size:1.05rem;margin:26px 0 4px">练习</h3>
+
+  <article class="card easy io">
+    <h4><span class="chip easy">易</span>练习 1 · 数一数区域</h4>
+    <div class="q"><p>二维平面上 3 条一般位置的直线最多把平面分成几块？为什么 6 个编码只需要其中 6 块？</p></div>
+    <button class="reveal">显示答案 ▼</button>
+    <div class="ans">
+      <p>最多 $1+1+2+3=7$ 块（第 $n$ 条线最多被前面 $n-1$ 条切成 $n$ 段，每段多分一块）。</p>
+      <p>6 个输入只需占 6 块；多出来的一块不对应任何输入，是「浪费」的区域，不影响正确性。</p>
+    </div>
+  </article>
+
+  <article class="card mid io">
+    <h4><span class="chip mid">练习 2</span>把两个线性层合并</h4>
+    <div class="q">
+      <p>$W^{IH}=\begin{pmatrix}1&2\\0&1\end{pmatrix}$，$W^{HO}=\begin{pmatrix}2&-1\\1&0\end{pmatrix}$，$c=1$，$b^H=b^O=0$。求等价的单层权重。</p>
+    </div>
+    <button class="reveal">显示答案 ▼</button>
+    <div class="ans">
+      <p>$W^{IO}=W^{IH}W^{HO}=\begin{pmatrix}1&2\\0&1\end{pmatrix}\begin{pmatrix}2&-1\\1&0\end{pmatrix}=\begin{pmatrix}4&-1\\1&0\end{pmatrix}$。</p>
+      <div class="res">$W^{IO}=\begin{pmatrix}4&-1\\1&0\end{pmatrix}$</div>
+      <p>验证：输入 $(1,1)$，先经第一层得 $(3,1)$，再经第二层得 $(6-1,\,3)=(5,3)$；直接用 $W^{IO}$ 乘 $(1,1)$ 也得 $(5,3)$。</p>
+    </div>
+  </article>
+
+  <article class="card hard io">
+    <h4><span class="chip hard">练习 3</span>为什么窄层会丢信息</h4>
+    <div class="q"><p>6 维输入经过 2 个线性单元，再用线性输出层，能否区分 6 个 one-hot 输入？说明秩的作用。</p></div>
+    <button class="reveal">显示答案 ▼</button>
+    <div class="ans">
+      <p>整个网络等价于 $W^{IO}=W^{IH}W^{HO}$，其秩 $\le\min(2,3)=2$，所以输出最多只有 2 维变化。</p>
+      <p>6 个输入要产生 6 个不同的输出码，至少需要能表示 6 个不同向量；秩 2 的映射把 6 维压到 2 维，
+      若 $W^{IH}$ 的 6 列在 2 维里恰好互不相同，仍可区分（这就是本题的关键）—— 但只能放 6 个点，且一旦再经过一层线性映射仍保持秩 2，不会「变宽」。</p>
+      <div class="res">秩 ≤ 2：可分但空间被压扁，容错小</div>
+      <p>换成 tanh 后，非线性使 6 个点可以任意摆放，才真正获得自由。</p>
+    </div>
+  </article>
+
+  <h3 style="font-size:1.05rem;margin:26px 0 4px">变种题</h3>
+
+  <article class="card var io">
+    <h4><span class="chip var">变种 1</span>把 c 换成每层不同的常数</h4>
+    <div class="q"><p>若隐藏层常数是 $c_1$、输出层是 $c_2$，等价的单层权重与偏置是什么？</p></div>
+    <button class="reveal">显示答案 ▼</button>
+    <div class="ans">
+      <p>$H=c_1(b^H+IW^{IH})$，$O=c_2(b^O+HW^{HO})$ → $W^{IO}=c_1c_2W^{IH}W^{HO}$，$b^{IO}=b^O+c_1b^HW^{HO}$（外层 $c_2$ 仍提出）。</p>
+      <p>结论不变：仍是一个线性映射。</p>
+    </div>
+  </article>
+
+  <article class="card var io">
+    <h4><span class="chip var">变种 2</span>线性 + 一个 ReLU 够不够</h4>
+    <div class="q"><p>结构「线性 → ReLU → 线性」能否被单个线性层替代？用一句话说明。</p></div>
+    <button class="reveal">显示答案 ▼</button>
+    <div class="ans">
+      <p>不能。ReLU 是分段函数，$W_2\,\mathrm{ReLU}(W_1x)$ 在不同区域对应不同矩阵，无法用一个矩阵统一表示。</p>
+      <p>这也正是「加一个非线性就够做 XOR」的原因。</p>
+    </div>
+  </article>
+
+  <details class="gloss">
+    <summary>本章术语表</summary>
+    <div class="body">
+      <dl>
+        <dt>hidden unit space<em>隐藏单元空间</em></dt><dd>以隐藏层激活值为坐标的空间；每个输入对应一个点。</dd>
+        <dt>representation<em>表示</em></dt><dd>输入在网络内部被变换成的向量。</dd>
+        <dt>linear transfer function<em>线性传递函数</em></dt><dd>激活为常数乘加权和，无饱和无阈值。</dd>
+        <dt>collapse<em>塌缩</em></dt><dd>表示维度/秩下降，信息被压掉。</dd>
+        <dt>rank<em>秩</em></dt><dd>矩阵能保留的独立方向数；决定信息是否丢失。</dd>
+        <dt>manifold<em>流形</em></dt><dd>数据实际所在的低维弯曲面。</dd>
+        <dt>embedding<em>嵌入</em></dt><dd>离散对象到连续向量的映射。</dd>
+        <dt>disentanglement<em>解耦</em></dt><dd>表示的各维度对应独立的变化因素。</dd>
+      </dl>
+    </div>
+  </details>
+
+  <label class="done"><input type="checkbox" data-id="ch6"> 标记本章已掌握</label>
+  <div class="chnav">
+    <a href="#ch5"><small>上一章</small>← 05 · 泛化与正则化</a>
+    <a class="next" href="#ch7"><small>下一章</small>07 · Softmax 与交叉熵 →</a>
+  </div>
+</section>

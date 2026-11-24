@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>COMP9444 复习手册 · 26T3</title>
+<link rel="stylesheet" href="vendor/katex.min.css?v=7">
+<link rel="stylesheet" href="css/style.css?v=7">
+<script src="vendor/katex.min.js?v=7" defer></script>
+<script src="vendor/auto-render.min.js?v=7" defer></script>
+<script src="js/app.js?v=7" defer></script>
+<script src="js/viz1.js?v=7" defer></script>
+<script src="js/viz2.js?v=7" defer></script>
+</head>
+<body>
+
+<div class="topbar"><i id="readbar"></i></div>
+<button class="menu-btn" id="menubtn" aria-label="打开目录">☰</button>
+
+<aside class="side" id="side">
+  <div class="brand">
+    <div class="mark">COMP9444 · 26T3</div>
+    <h1>神经网络与深度学习<br>复习手册</h1>
+    <p>从零讲起 · 每章可动手 · 全部课内例题</p>
+  </div>
+
+  <div class="search">
+    <input id="q" type="search" placeholder="搜索：KL、卷积、LSTM…" autocomplete="off">
+    <div class="hit" id="qhit"></div>
+  </div>
+
+  <nav class="nav" id="nav">
+    <div class="nav-group-label">第一部分 · 核心知识</div>
+    <a href="#ch1"><span class="n">01</span><span>神经元与网络的基本零件</span></a>
+    <a href="#ch2"><span class="n">02</span><span>感知机与学习算法</span></a>
+    <a href="#ch3"><span class="n">03</span><span>反向传播：网络怎么学</span></a>
+    <a href="#ch4"><span class="n">04</span><span>概率、熵与 KL 散度</span></a>
+    <a href="#ch5"><span class="n">05</span><span>泛化与正则化</span></a>
+    <a href="#ch6"><span class="n">06</span><span>隐藏层、线性塌缩与表示</span></a>
+    <a href="#ch7"><span class="n">07</span><span>Softmax 与交叉熵</span></a>
+    <a href="#ch8"><span class="n">08</span><span>卷积网络</span></a>
+    <a href="#ch9"><span class="n">09</span><span>自编码器、对抗样本、词向量</span></a>
+    <a href="#ch10"><span class="n">10</span><span>强化学习与 Q-Learning</span></a>
+    <a href="#ch11"><span class="n">11</span><span>序列建模：RNN / LSTM / 注意力</span></a>
+    <div class="nav-group-label">第二部分 · 模拟考场</div>
+    <a href="#mock1"><span class="n">A</span><span>模拟卷 ① 基础（60 分钟）</span></a>
+    <a href="#mock2"><span class="n">B</span><span>模拟卷 ② 进阶（75 分钟）</span></a>
+    <a href="#mock3"><span class="n">C</span><span>模拟卷 ③ 挑战（90 分钟）</span></a>
+  </nav>
+
+  <div class="side-foot">
+    <div class="pbar"><i id="pfill"></i></div>
+    <div class="pbar-txt" id="ptxt">0 / 14 模块已完成</div>
+    <button class="sbtn" id="expandAll">展开本页全部答案</button>
+    <button class="sbtn" id="collapseAll">收起本页全部答案</button>
+    <button class="sbtn" id="resetProg">重置学习进度</button>
+  </div>
+</aside>
+
+<main>
+<div class="wrap">
+
+  <header class="hero">
+    <div class="eyebrow">UNSW · Neural Networks and Deep Learning</div>
+    <h1>用两小时，把 COMP9444 重新学一遍</h1>
+    <p class="sub">
+      这本手册假设你<b>一节课都没听过</b>。每个概念都从「为什么需要它」讲起，先给直觉、再给公式、再给手算，
+      最后是课内原题、分层练习、变种题和三套模拟卷。所有公式用 LaTeX 排版，所有能动手的地方都做成了可交互的实验。
+    </p>
+    <div class="meta">
+      <span class="pill">11 个知识模块</span>
+      <span class="pill">3 套模拟卷</span>
+      <span class="pill"><b id="cntEg">—</b> 道课内例题</span>
+      <span class="pill"><b id="cntViz">—</b> 个可交互实验</span>
+      <span class="pill">预计 <b>6–8</b> 小时</span>
+    </div>
+  </header>
+
+<!--{{HOWTO}}-->
+<!--{{CH01}}-->
+<!--{{CH02}}-->
+<!--{{CH03}}-->
+<!--{{CH04}}-->
+<!--{{CH05}}-->
+<!--{{CH06}}-->
+<!--{{CH07}}-->
+<!--{{CH08}}-->
+<!--{{CH09}}-->
+<!--{{CH10}}-->
+<!--{{CH11}}-->
+<!--{{MOCK1}}-->
+<!--{{MOCK2}}-->
+<!--{{MOCK3}}-->
+
+  <footer style="margin-top:70px;padding-top:22px;border-top:1px solid var(--line);font-size:.8rem;color:var(--muted)">
+    <p style="margin:0 0 6px">COMP9444 26T3 复习手册 · 内容依据 Week 1–10 讲义与 Tutorial 1–5 整理，所有数值均经过程序复核。</p>
+    <p style="margin:0">答案折叠、进度勾选都保存在本机浏览器里（<span class="kbd">localStorage</span>），换浏览器会重置。</p>
+  </footer>
+</div>
+</main>
+
+<button class="totop" id="totop" aria-label="回到顶部">↑</button>
+</body>
+</html>

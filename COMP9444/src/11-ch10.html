@@ -1,0 +1,301 @@
+<section class="chapter" id="ch10">
+  <header class="chapter-head">
+    <div class="kicker">模块 10 · Lecture 8 · Tutorial 8</div>
+    <h2>强化学习与 Q-Learning</h2>
+    <p class="lead">
+      前面所有章节都是「给数据、学映射」。强化学习不同：<b>没有正确答案，只有奖励</b>，而且现在的动作会改变未来能看到什么。
+      这一章用课内那个只有 2 个状态、2 个动作的小世界，把 MDP、值函数、贝尔曼方程、Q-learning 和「为什么要探索」一次讲完 ——
+      这题几乎年年考，而且数字好算。
+    </p>
+    <div class="glance">
+      <div><h5>考试怎么考</h5>给转移与奖励，求最优策略、$V^*$、$Q$ 矩阵；追踪 Q-learning 前几步；讨论 $\gamma$ 如何改变最优策略；解释探索的必要性。</div>
+      <div><h5>你需要先会</h5>期望、解二元一次方程、$\max$。</div>
+    </div>
+    <div class="minitoc">
+      <a href="#s10-1">10.1 MDP 与回报</a><a href="#s10-2">10.2 贝尔曼方程</a>
+      <a href="#s10-3">10.3 课内 MDP 全解</a><a href="#s10-4">10.4 γ 如何改变策略</a>
+      <a href="#s10-5">10.5 Q-learning 与探索</a><a href="#s10-6">10.6 DQN</a>
+    </div>
+  </header>
+
+  <div class="lesson" id="s10-1">
+    <h3><span class="num">10.1</span>把「打游戏」写成数学</h3>
+    <p>一个马尔可夫决策过程（MDP）由五件事组成：</p>
+    <table class="sym">
+      <tr><th>$S$</th><td>状态集合（state）。这里 $S=\{S_1,S_2\}$。</td></tr>
+      <tr><th>$A$</th><td>动作集合（action）。这里 $A=\{a_1,a_2\}$。</td></tr>
+      <tr><th>$\delta(s,a)$</th><td>转移函数：在 $s$ 做 $a$ 会到哪个状态（随机情形是概率分布 $P(s'\mid s,a)$）。</td></tr>
+      <tr><th>$r(s,a)$</th><td>即时奖励（reward）。</td></tr>
+      <tr><th>$\gamma$</th><td>折扣因子（discount factor），$0\le\gamma\lt 1$：未来的奖励要打折。</td></tr>
+    </table>
+    <p>智能体想要最大化的不是某一步的奖励，而是<b>回报</b>（return）：</p>
+    <div class="mathbox">
+      <div class="cap">折扣回报</div>
+      $$G_t=r_{t+1}+\gamma r_{t+2}+\gamma^2r_{t+3}+\cdots=\sum_{k=0}^{\infty}\gamma^{k}r_{t+k+1}$$
+    </div>
+    <div class="callout why">
+      <span class="tag">为什么要折扣</span>
+      ① 数学上保证无穷和收敛（$\gamma\lt 1$）；② 语义上「现在的 1 块比以后的 1 块值钱」；
+      ③ 让策略偏向更快拿到奖励。$\gamma=0$ 变成只看眼前，$\gamma\to1$ 变得极端有耐心。
+    </div>
+  </div>
+
+  <div class="lesson" id="s10-2">
+    <h3><span class="num">10.2</span>值函数与贝尔曼方程</h3>
+    <p>在状态 $s$ 开始、之后一直按策略 $\pi$ 行动，期望能拿到的折扣回报就是<b>状态值函数</b>：</p>
+    <div class="mathbox">
+      <div class="cap">Bellman expectation equation</div>
+      $$V^{\pi}(s)=\sum_{a}\pi(a\mid s)\left[r(s,a)+\gamma\sum_{s'}P(s'\mid s,a)V^{\pi}(s')\right]$$
+      <div class="cap" style="margin-top:10px">最优值函数</div>
+      $$V^{*}(s)=\max_{a}\left[r(s,a)+\gamma\sum_{s'}P(s'\mid s,a)V^{*}(s')\right]$$
+    </div>
+    <p>确定性环境下把期望去掉，就是课内用的那两条方程：</p>
+    <div class="mathbox eq">
+      $$V(S_1)=-2+\gamma V(S_2),\qquad V(S_2)=7+\gamma V(S_1)$$
+    </div>
+    <p>两个未知数、两个方程，代入消元即可。这类「联立方程」是本章手算题的标准形态。</p>
+    <div class="callout note">
+      <span class="tag">Q 函数</span>
+      $Q(s,a)=r(s,a)+\gamma V^{*}(\delta(s,a))$ 是「在 $s$ 先做 $a$、之后最优」的价值。
+      有了 $Q$，最优策略就是每个状态取 $\arg\max_a Q(s,a)$ —— 这也是 Q-learning 直接学 $Q$ 的原因。
+    </div>
+  </div>
+
+  <div class="lesson" id="s10-3">
+    <h3><span class="num">10.3</span>课内 MDP 全解（$\gamma=0.7$）</h3>
+    <p>世界：</p>
+    <table class="grid">
+      <thead><tr><th>状态</th><th>动作</th><th>下一状态 $\delta$</th><th class="num">奖励 $r$</th></tr></thead>
+      <tbody>
+        <tr><td>$S_1$</td><td>$a_1$</td><td>$S_1$</td><td class="num">+1</td></tr>
+        <tr><td>$S_1$</td><td>$a_2$</td><td>$S_2$</td><td class="num">−2</td></tr>
+        <tr><td>$S_2$</td><td>$a_1$</td><td>$S_1$</td><td class="num">+7</td></tr>
+        <tr><td>$S_2$</td><td>$a_2$</td><td>$S_2$</td><td class="num">+3</td></tr>
+      </tbody>
+    </table>
+
+    <div class="viz" data-viz="bellman">
+      <div class="viz-head">
+        <span class="lab">LAB 13</span><h5>点「迭代」，看 V 与策略自己收敛</h5>
+        <span class="hint">拖 γ 会改变最优动作</span>
+      </div>
+      <div class="viz-body"></div>
+      <div class="viz-note">
+        反复按「一步」：V 从 0 开始，每次用「奖励 + γ×下一步价值」刷新，最后稳定在 $V=(5.686,10.980)$。
+        把 γ 拖到 0.4，$S_1$ 会改选 $a_1$（留在原地拿 +1）；拖到 0.9，$S_1$ 会改选 $a_2$ 去 $S_2$ 吃 +7。
+      </div>
+    </div>
+
+    <p><b>为什么 $S_1$ 选 $a_2$（奖励 −2 的那个）？</b>因为 $a_2$ 把它送到 $S_2$，而 $S_2$ 每步能拿 +7。
+    折扣后 $10.98$ 的一次跳跃远超留在原地拿 +1。这说明：<b>要比较的是长期回报，不是即时奖励。</b></p>
+
+    <div class="ans show" style="border-top:0;margin-top:0">
+      <div class="step"><b>方程</b><div>$V(S_1)=-2+0.7V(S_2)$，$V(S_2)=7+0.7V(S_1)$。</div></div>
+      <div class="step"><b>消元</b><div>$V(S_1)=-2+0.7(7+0.7V(S_1))=-2+4.9+0.49V(S_1)$，
+        故 $0.51V(S_1)=2.9$，$V(S_1)=5.686$。</div></div>
+      <div class="step"><b>回代</b><div>$V(S_2)=7+0.7(5.686)=10.980$。</div></div>
+      <div class="step"><b>Q</b><div>$Q(S_1,a_1)=1+0.7(5.686)=4.980$；$Q(S_1,a_2)=-2+0.7(10.980)=5.686$；
+        $Q(S_2,a_1)=7+0.7(5.686)=10.980$；$Q(S_2,a_2)=3+0.7(10.980)=10.686$。</div></div>
+      <div class="res">$\pi^*=(a_2,a_1)$，$V^*=(5.686,\,10.980)$，$Q=\begin{pmatrix}4.980&5.686\\10.980&10.686\end{pmatrix}$</div>
+    </div>
+  </div>
+
+  <div class="lesson" id="s10-4">
+    <h3><span class="num">10.4</span>γ 从 0 变到 1，最优策略会换三次</h3>
+    <p>四个确定性策略 $\pi_{ij}$ 表示「$S_1\to a_i$，$S_2\to a_j$」。分别解方程：</p>
+    <table class="grid">
+      <thead><tr><th>策略</th><th>$V(S_1)$</th><th>$V(S_2)$</th></tr></thead>
+      <tbody>
+        <tr><td>$\pi_{11}$（都选 $a_1$）</td><td>$\dfrac{1}{1-\gamma}$</td><td>$7+\gamma V(S_1)$</td></tr>
+        <tr><td>$\pi_{12}$</td><td>$\dfrac{1}{1-\gamma}$</td><td>$\dfrac{3}{1-\gamma}$</td></tr>
+        <tr><td>$\pi_{21}$（都去 $S_2$ 吃 +7）</td><td>$\dfrac{-2+7\gamma}{1-\gamma^2}$</td><td>$7+\gamma V(S_1)$</td></tr>
+        <tr><td>$\pi_{22}$（都留在 $S_2$）</td><td>$-2+\dfrac{3\gamma}{1-\gamma}$</td><td>$\dfrac{3}{1-\gamma}$</td></tr>
+      </tbody>
+    </table>
+    <p>比较 $V(S_1)$ 的大小，得到三条分界线：</p>
+    <div class="mathbox eq">
+      $$\pi_{11}\succ\pi_{21}\iff\gamma\lt 0.5,\qquad
+        \pi_{21}\succ\pi_{22}\iff\gamma\lt 0.8$$
+    </div>
+    <div class="res" style="display:inline-block;margin:8px 0;padding:8px 12px;background:var(--green-soft);border:1px solid #cbe8d5;border-radius:7px">
+      $\gamma\lt 0.5$：$\pi_{11}$；$0.5\lt \gamma\lt 0.8$：$\pi_{21}$；$\gamma\gt 0.8$：$\pi_{22}$；$\pi_{12}$ 永远不是最优
+    </div>
+    <p>直觉：$\gamma$ 小 → 只顾眼前，$S_1$ 的 +1 最好；$\gamma$ 大 → 愿意忍受 −2 去换 $S_2$ 的 +7；
+    再大 → 连 $S_1$ 都不回去了，永远待在 $S_2$ 里拿 +3（因为回去要先亏 −2，而未来折现后不值）。</p>
+    <div class="callout trap">
+      <span class="tag">易错</span>
+      $\pi_{12}$ 与 $\pi_{11}$ 在 $S_1$ 上完全一样（都选 $a_1$），所以 $V(S_1)$ 相同，但 $S_2$ 上更差 —— 它被 $\pi_{11}$ 严格支配，
+      永远不会最优。答题时点出「dominated」会加分。
+    </div>
+  </div>
+
+  <div class="lesson" id="s10-5">
+    <h3><span class="num">10.5</span>Q-learning：不用模型，边玩边学</h3>
+    <p>现实中我们往往不知道 $\delta$ 和 $r$，只能「走一步看一步」。Q-learning 用采样到的 $(s,a,r,s')$ 直接更新：</p>
+    <div class="mathbox">
+      <div class="cap">Q-learning 更新</div>
+      $$Q(s,a)\leftarrow Q(s,a)+\alpha\left[\underbrace{r+\gamma\max_{b}Q(s',b)}_{\text{TD target}}-Q(s,a)\right]$$
+    </div>
+    <p>方括号里叫<b>时序差分误差</b>（TD error）。$\alpha=1$ 且环境确定性时，退化成课件的简洁形式：</p>
+    <div class="mathbox eq">
+      $$Q(s,a)\leftarrow r(s,a)+\gamma\max_b Q(\delta(s,a),b)$$
+    </div>
+    <p>课内要求追踪前几步（$\gamma=0.7$，$\alpha=1$，初值全 0，从 $S_1$ 出发）：</p>
+    <table class="grid">
+      <thead><tr><th>步</th><th>状态</th><th>动作</th><th>计算</th><th class="num">新 Q</th><th>下一状态</th></tr></thead>
+      <tbody>
+        <tr><td>1</td><td>$S_1$</td><td>$a_1$</td><td>$1+0.7\max Q(S_1,\cdot)=1$</td><td class="num">$Q(S_1,a_1)=1$</td><td>$S_1$</td></tr>
+        <tr><td>2</td><td>$S_1$</td><td>$a_2$（强制探索）</td><td>$-2+0.7\max Q(S_2,\cdot)=-2$</td><td class="num">$Q(S_1,a_2)=-2$</td><td>$S_2$</td></tr>
+        <tr><td>3</td><td>$S_2$</td><td>$a_2$</td><td>$3+0.7\max Q(S_2,\cdot)=3$</td><td class="num">$Q(S_2,a_2)=3$</td><td>$S_2$</td></tr>
+        <tr><td>4</td><td>$S_2$</td><td>$a_1$</td><td>$7+0.7\max Q(S_1,\cdot)=7.7$</td><td class="num">$Q(S_2,a_1)=7.7$</td><td>$S_1$</td></tr>
+        <tr><td>5</td><td>$S_1$</td><td>$a_1$</td><td>$1+0.7\max(1,-2)=1.7$</td><td class="num">$Q(S_1,a_1)=1.7$</td><td>$S_1$</td></tr>
+        <tr><td>6</td><td>$S_1$</td><td>$a_2$</td><td>$-2+0.7\times7.7=3.39$</td><td class="num">$Q(S_1,a_2)=3.39$</td><td>$S_2$</td></tr>
+      </tbody>
+    </table>
+    <p>继续下去会收敛到 $4.98/5.69/10.98/10.69$。注意每一步的 $\max$ 用的是<b>更新后</b>的表。</p>
+
+    <div class="callout why">
+      <span class="tag">为什么必须探索</span>
+      若总是贪心选当前最大的 $Q$，第 1 步之后 $Q(S_1,a_1)=1\gt Q(S_1,a_2)=0$，智能体会永远选 $a_1$，
+      $Q(S_1,a_2)$ 永远是 0，永远发现不了「去 $S_2$ 更赚」。这叫<b>过早收敛到次优策略</b>。
+      所以要用 $\varepsilon$-greedy（以 $\varepsilon$ 概率随机）或 softmax 采样来保证每个 $(s,a)$ 都被访问到。
+    </div>
+    <p>收敛条件（ tabular 情形）：每个状态-动作对被无限次访问，且学习率满足 $\sum\alpha_t=\infty,\ \sum\alpha_t^2\lt \infty$。</p>
+  </div>
+
+  <div class="lesson" id="s10-6">
+    <h3><span class="num">10.6</span>从 Q 表到 DQN</h3>
+    <p>
+      状态一多（比如像素输入），表格存不下。DQN 用神经网络 $Q(s,a;\theta)$ 近似，并加了两个稳定训练的技巧：
+    </p>
+    <ul>
+      <li><b>经验回放</b>（experience replay）：把 $(s,a,r,s')$ 存进缓冲区，随机抽样训练，打破时间相关性。</li>
+      <li><b>目标网络</b>（target network）：用一个延迟更新的副本算 TD target，避免「自己追自己」的震荡。</li>
+    </ul>
+    <div class="mathbox eq">
+      $$L(\theta)=\mathbb E_{(s,a,r,s')}\left[\left(r+\gamma\max_{b}Q(s',b;\theta^-)-Q(s,a;\theta)\right)^2\right]$$
+    </div>
+    <p>这个网络的输入就是第 8 章那道题里的 $84\times84\times4$ 图像，输出 18 个动作的 Q 值 —— 两章在这里接上了。</p>
+  </div>
+
+  <hr class="soft">
+  <h3 style="font-size:1.05rem;margin:0 0 4px">例题（课内原题）</h3>
+
+  <article class="card eg io">
+    <h4><span class="chip eg">例题 1</span>求最优策略、值函数与 Q 矩阵（Tutorial 8 Q1）</h4>
+    <div class="q">
+      <p>$\gamma=0.7$，转移与奖励如上表。求 (a) $\pi^*$；(b) $V^*$；(c) $Q$ 函数；(d) Q 矩阵。</p>
+    </div>
+    <button class="reveal">显示答案 ▼</button>
+    <div class="ans">
+      <p>先猜「$S_1\to a_2$、$S_2\to a_1$」，解方程得 $V(S_1)=5.686$、$V(S_2)=10.980$。</p>
+      <p>再验证没有更好的动作：$Q(S_1,a_1)=4.980\lt 5.686$，$Q(S_2,a_2)=10.686\lt 10.980$，猜对了。</p>
+      <div class="res">$\pi^*=(a_2,a_1)$；$V=(5.686,10.980)$；$Q=\begin{pmatrix}4.980&5.686\\10.980&10.686\end{pmatrix}$</div>
+      <p>答题时务必写「verification」这一步 —— 只解方程不验证，逻辑上是「假设了这个策略」。</p>
+    </div>
+  </article>
+
+  <article class="card eg io">
+    <h4><span class="chip eg">例题 2</span>Q-learning 的前几步与探索（Tutorial 8 Q1(e)）</h4>
+    <div class="q">
+      <p>$\gamma=0.7$、$\alpha=1$、$Q$ 全 0、从 $S_1$ 开始。追踪前几步，并解释为什么必须强制探索。</p>
+    </div>
+    <button class="reveal">显示答案 ▼</button>
+    <div class="ans">
+      <p>表格见 10.5 节（$1\to-2\to3\to7.7\to1.7\to3.39$）。</p>
+      <p>不探索的后果：一旦 $Q(S_1,a_1)$ 变成正数，贪心永远选 $a_1$，$Q(S_1,a_2)$ 保持 0，
+      永远学不到它真正的价值 5.69，策略卡在次优。</p>
+      <div class="enbox">
+        <div class="tag">英文写法</div>
+        <p>“Without forced exploration the agent always exploits the first action that receives a positive value, so the alternative action is never sampled and its Q-value never converges to the true value.”</p>
+      </div>
+    </div>
+  </article>
+
+  <h3 style="font-size:1.05rem;margin:26px 0 4px">练习</h3>
+
+  <article class="card easy io">
+    <div class="q"><h4><span class="chip easy">易</span>练习 1 · 一次贝尔曼备份</h4>
+      <p>已知 $V=(2,5)$，$\gamma=0.9$。用上面的 MDP 算 $Q(S_1,a_1)$ 与 $Q(S_1,a_2)$，并给出新的 $V(S_1)$。</p>
+    </div>
+    <button class="reveal">显示答案 ▼</button>
+    <div class="ans">
+      <p>$Q(S_1,a_1)=1+0.9(2)=2.8$；$Q(S_1,a_2)=-2+0.9(5)=2.5$。</p>
+      <p>$V(S_1)=\max(2.8,2.5)=2.8$。</p>
+      <div class="res">$2.8$，动作选 $a_1$</div>
+    </div>
+  </article>
+
+  <article class="card mid io">
+    <h4><span class="chip mid">练习 2</span>解一个策略的值</h4>
+    <div class="q"><p>策略 $\pi_{11}$（两个状态都选 $a_1$），求 $V(S_1),V(S_2)$ 关于 $\gamma$ 的表达式，并算 $\gamma=0.7$ 时的值。</p></div>
+    <button class="reveal">显示答案 ▼</button>
+    <div class="ans">
+      <p>$V(S_1)=1+\gamma V(S_1)\Rightarrow V(S_1)=1/(1-\gamma)$。</p>
+      <p>$V(S_2)=7+\gamma V(S_1)=\dfrac{7-6\gamma}{1-\gamma}$。</p>
+      <p>$\gamma=0.7$：$V(S_1)=3.333$，$V(S_2)=9.333$。</p>
+      <div class="res">$3.333$ 与 $9.333$</div>
+    </div>
+  </article>
+
+  <article class="card hard io">
+    <h4><span class="chip hard">练习 3</span>推出 0.5 与 0.8 两条分界线</h4>
+    <div class="q"><p>证明：$\pi_{11}$ 与 $\pi_{21}$ 在 $\gamma=0.5$ 处相等；$\pi_{21}$ 与 $\pi_{22}$ 在 $\gamma=0.8$ 处相等。</p></div>
+    <button class="reveal">显示答案 ▼</button>
+    <div class="ans">
+      <p>第一组：$\dfrac{1}{1-\gamma}=\dfrac{-2+7\gamma}{1-\gamma^2}=\dfrac{-2+7\gamma}{(1-\gamma)(1+\gamma)}$，
+      两边乘 $(1-\gamma)$ 得 $1=\dfrac{-2+7\gamma}{1+\gamma}\Rightarrow1+\gamma=-2+7\gamma\Rightarrow\gamma=0.5$。</p>
+      <p>第二组：$\dfrac{-2+5\gamma}{1-\gamma}=\dfrac{-2+7\gamma}{(1-\gamma)(1+\gamma)}
+      \Rightarrow(-2+5\gamma)(1+\gamma)=-2+7\gamma\Rightarrow5\gamma^2=4\gamma\Rightarrow\gamma=0.8$。</p>
+      <div class="res">$\gamma=0.5$ 与 $\gamma=0.8$</div>
+      <p>两条都是线性/二次方程，代进去就能解；考试不要求证明单调性，但写一句「在区间内比较端点即可」更完整。</p>
+    </div>
+  </article>
+
+  <h3 style="font-size:1.05rem;margin:26px 0 4px">变种题</h3>
+
+  <article class="card var io">
+    <h4><span class="chip var">变种 1</span>把奖励 −2 改成 0</h4>
+    <div class="q"><p>若 $r(S_1,a_2)=0$，$\gamma=0.7$ 时最优策略还是 $(a_2,a_1)$ 吗？</p></div>
+    <button class="reveal">显示答案 ▼</button>
+    <div class="ans">
+      <p>假设 $\pi_{21}$：$V(S_1)=0+0.7V(S_2)$，$V(S_2)=7+0.7V(S_1)$ ⇒ $V(S_1)=0.7(7+0.7V_1)$ ⇒ $0.51V_1=4.9$ ⇒ $V_1=9.608$，$V_2=13.725$。</p>
+      <p>仍选 $a_2$（$Q(S_1,a_1)=1+0.7(9.608)=7.726\lt 9.608$）。策略不变，值变大。</p>
+    </div>
+  </article>
+
+  <article class="card var io">
+    <h4><span class="chip var">变种 2</span>随机转移</h4>
+    <div class="q"><p>若在 $S_1$ 选 $a_1$ 时以 0.8 概率留在 $S_1$、0.2 概率去 $S_2$，方程怎么变？</p></div>
+    <button class="reveal">显示答案 ▼</button>
+    <div class="ans">
+      <p>$Q(S_1,a_1)=1+\gamma[0.8V(S_1)+0.2V(S_2)]$，其余动作不变（确定性）。</p>
+      <p>其余步骤相同，只是多了一层期望。这就是「带模型的策略评估」（policy evaluation）。</p>
+    </div>
+  </article>
+
+  <details class="gloss">
+    <summary>本章术语表</summary>
+    <div class="body">
+      <dl>
+        <dt>MDP<em>马尔可夫决策过程</em></dt><dd>$(S,A,\delta,r,\gamma)$。</dd>
+        <dt>return<em>回报</em></dt><dd>折扣后的累计奖励。</dd>
+        <dt>discount factor<em>折扣因子</em></dt><dd>$\gamma$，未来奖励的权重。</dd>
+        <dt>value function<em>值函数</em></dt><dd>$V^\pi(s)$：从 $s$ 出发的期望回报。</dd>
+        <dt>Q function<em>动作值函数</em></dt><dd>$Q(s,a)$：先做 $a$ 再最优的期望回报。</dd>
+        <dt>Bellman equation<em>贝尔曼方程</em></dt><dd>值函数与后继值函数的关系式。</dd>
+        <dt>policy<em>策略</em></dt><dd>状态到动作的映射。</dd>
+        <dt>TD error<em>时序差分误差</em></dt><dd>TD target 与当前估计之差。</dd>
+        <dt>$\varepsilon$-greedy<em>ε 贪心</em></dt><dd>以 ε 概率随机探索，否则取最优。</dd>
+        <dt>experience replay<em>经验回放</em></dt><dd>随机抽样历史转移，打破相关性。</dd>
+        <dt>target network<em>目标网络</em></dt><dd>延迟更新的副本，稳定 TD target。</dd>
+      </dl>
+    </div>
+  </details>
+
+  <label class="done"><input type="checkbox" data-id="ch10"> 标记本章已掌握</label>
+  <div class="chnav">
+    <a href="#ch9"><small>上一章</small>← 09 · 自编码器与词向量</a>
+    <a class="next" href="#ch11"><small>下一章</small>11 · 序列建模 →</a>
+  </div>
+</section>
